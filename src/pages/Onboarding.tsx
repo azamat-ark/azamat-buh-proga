@@ -37,14 +37,10 @@ export default function Onboarding() {
   const handleSubmit = async (data: CompanyFormData) => {
     setIsCreating(true);
     try {
-      const company = await createCompany(data.name);
-      
-      if (data.bin_iin) {
-        await supabase
-          .from('companies')
-          .update({ bin_iin: data.bin_iin })
-          .eq('id', company.id);
-      }
+      const company = await createCompany({
+        name: data.name,
+        bin_iin: data.bin_iin || null,
+      });
 
       setCompanyId(company.id);
       toast({ title: 'Организация создана', description: 'Теперь вы можете начать работу' });
