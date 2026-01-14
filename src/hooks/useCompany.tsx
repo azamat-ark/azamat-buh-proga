@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Database } from '@/integrations/supabase/types';
@@ -71,65 +70,41 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   const createCompanyMutation = useMutation({
     mutationFn: async (input: { name: string; bin_iin?: string | null }) => {
-      if (!user) throw new Error('Not authenticated');
+      if (!user) throw new Error('Требуется авторизация');
 
       const { name, bin_iin } = input;
 
-      // IMPORTANT: do not request RETURNING rows here, otherwise RLS SELECT policy on
-      // companies can block the response before the creator is added as a member.
-      // Also ensure the request is made with an auth token (some environments can lose it).
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      if (!session) throw new Error('Сессия не активна. Выйдите и войдите заново.');
+      // Use secure RPC function to create company with owner membership atomically
+      // This bypasses RLS via SECURITY DEFINER and ensures proper validation
+      const { data: companyId, error } = await supabase.rpc('create_company_with_owner', {
+        _company_name: name.trim(),
+        _bin_iin: bin_iin?.trim() || null,
+      });
 
-      const authedSupabase = createClient<Database>(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          },
-          auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            storage: undefined as any,
-          },
+      if (error) {
+        // Translate common errors to Russian
+        if (error.message.includes('Authentication required')) {
+          throw new Error('Требуется авторизация');
         }
-      );
+        if (error.message.includes('Company name is required')) {
+          throw new Error('Название организации обязательно');
+        }
+        if (error.message.includes('BIN/IIN must be exactly 12 digits')) {
+          throw new Error('БИН/ИИН должен содержать ровно 12 цифр');
+        }
+        throw error;
+      }
 
-      const companyId = crypto.randomUUID();
-
-      const { error: companyError } = await authedSupabase
-        .from('companies')
-        .insert({
-          id: companyId,
-          name,
-          ...(bin_iin ? { bin_iin } : {}),
-        });
-
-      if (companyError) throw companyError;
-
-      const { error: memberError } = await authedSupabase
-        .from('company_members')
-        .insert({
-          company_id: companyId,
-          user_id: user.id,
-          role: 'owner' as AppRole,
-        });
-
-      if (memberError) throw memberError;
+      if (!companyId) {
+        throw new Error('Не удалось создать организацию');
+      }
 
       // Return minimal object (full row will be fetched via companies query)
       return {
         id: companyId,
-        name,
+        name: name.trim(),
         address: null,
-        bin_iin: bin_iin ?? null,
+        bin_iin: bin_iin?.trim() || null,
         created_at: null,
         default_currency: null,
         email: null,
@@ -139,6 +114,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         tax_regime: null,
         is_vat_payer: null,
         kbe: null,
+        fiscal_year_start: null,
+        coa_standard: null,
       } as Company;
     },
     onSuccess: (company) => {
