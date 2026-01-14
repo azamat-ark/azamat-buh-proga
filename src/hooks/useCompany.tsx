@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Database } from '@/integrations/supabase/types';
@@ -73,15 +74,37 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
       // IMPORTANT: do not request RETURNING rows here, otherwise RLS SELECT policy on
       // companies can block the response before the creator is added as a member.
+      // Also ensure the request is made with an auth token (some environments can lose it).
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) throw new Error('Сессия не активна. Выйдите и войдите заново.');
+
+      const authedSupabase = createClient<Database>(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          },
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            storage: undefined as any,
+          },
+        }
+      );
+
       const companyId = crypto.randomUUID();
 
-      const { error: companyError } = await supabase
+      const { error: companyError } = await authedSupabase
         .from('companies')
         .insert({ id: companyId, name });
 
       if (companyError) throw companyError;
 
-      const { error: memberError } = await supabase
+      const { error: memberError } = await authedSupabase
         .from('company_members')
         .insert({
           company_id: companyId,
