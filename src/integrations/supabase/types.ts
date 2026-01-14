@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          company_id: string
+          created_at: string | null
+          end_date: string
+          id: string
+          name: string
+          notes: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["period_status"] | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id: string
+          created_at?: string | null
+          end_date: string
+          id?: string
+          name: string
+          notes?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["period_status"] | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id?: string
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["period_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_periods_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           company_id: string
@@ -51,6 +98,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          changed_fields: string[] | null
+          company_id: string
+          created_at: string | null
+          id: string
+          ip_address: unknown
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changed_fields?: string[] | null
+          company_id: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changed_fields?: string[] | null
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -96,13 +199,78 @@ export type Database = {
           },
         ]
       }
+      chart_of_accounts: {
+        Row: {
+          account_class: Database["public"]["Enums"]["account_type_class"]
+          allow_manual_entry: boolean | null
+          code: string
+          company_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          name_kz: string | null
+          parent_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_class: Database["public"]["Enums"]["account_type_class"]
+          allow_manual_entry?: boolean | null
+          code: string
+          company_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          name_kz?: string | null
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_class?: Database["public"]["Enums"]["account_type_class"]
+          allow_manual_entry?: boolean | null
+          code?: string
+          company_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          name_kz?: string | null
+          parent_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
           bin_iin: string | null
+          coa_standard: Database["public"]["Enums"]["coa_standard"] | null
           created_at: string | null
           default_currency: string | null
           email: string | null
+          fiscal_year_start: number | null
           id: string
           invoice_next_number: number | null
           invoice_prefix: string | null
@@ -115,9 +283,11 @@ export type Database = {
         Insert: {
           address?: string | null
           bin_iin?: string | null
+          coa_standard?: Database["public"]["Enums"]["coa_standard"] | null
           created_at?: string | null
           default_currency?: string | null
           email?: string | null
+          fiscal_year_start?: number | null
           id?: string
           invoice_next_number?: number | null
           invoice_prefix?: string | null
@@ -130,9 +300,11 @@ export type Database = {
         Update: {
           address?: string | null
           bin_iin?: string | null
+          coa_standard?: Database["public"]["Enums"]["coa_standard"] | null
           created_at?: string | null
           default_currency?: string | null
           email?: string | null
+          fiscal_year_start?: number | null
           id?: string
           invoice_next_number?: number | null
           invoice_prefix?: string | null
@@ -225,6 +397,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dimensions: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_id: string | null
+          type: string
+        }
+        Insert: {
+          code: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_id?: string | null
+          type: string
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dimensions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dimensions_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "dimensions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_types: {
+        Row: {
+          code: string
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          name_kz: string | null
+        }
+        Insert: {
+          code: string
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          name_kz?: string | null
+        }
+        Update: {
+          code?: string
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          name_kz?: string | null
+        }
+        Relationships: []
       }
       employees: {
         Row: {
@@ -465,6 +712,155 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          created_by: string | null
+          date: string
+          description: string | null
+          document_id: string | null
+          document_type_id: string | null
+          entry_number: string
+          id: string
+          period_id: string
+          posted_at: string | null
+          posted_by: string | null
+          reversal_entry_id: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          status: Database["public"]["Enums"]["journal_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
+          date: string
+          description?: string | null
+          document_id?: string | null
+          document_type_id?: string | null
+          entry_number: string
+          id?: string
+          period_id: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reversal_entry_id?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: Database["public"]["Enums"]["journal_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          date?: string
+          description?: string | null
+          document_id?: string | null
+          document_type_id?: string | null
+          entry_number?: string
+          id?: string
+          period_id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          reversal_entry_id?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          status?: Database["public"]["Enums"]["journal_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_reversal_entry_id_fkey"
+            columns: ["reversal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_lines: {
+        Row: {
+          account_id: string
+          amount_currency: number | null
+          created_at: string | null
+          credit: number | null
+          currency: string | null
+          debit: number | null
+          description: string | null
+          dimensions: Json | null
+          entry_id: string
+          exchange_rate: number | null
+          id: string
+          line_number: number
+        }
+        Insert: {
+          account_id: string
+          amount_currency?: number | null
+          created_at?: string | null
+          credit?: number | null
+          currency?: string | null
+          debit?: number | null
+          description?: string | null
+          dimensions?: Json | null
+          entry_id: string
+          exchange_rate?: number | null
+          id?: string
+          line_number: number
+        }
+        Update: {
+          account_id?: string
+          amount_currency?: number | null
+          created_at?: string | null
+          credit?: number | null
+          currency?: string | null
+          debit?: number | null
+          description?: string | null
+          dimensions?: Json | null
+          entry_id?: string
+          exchange_rate?: number | null
+          id?: string
+          line_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -750,9 +1146,18 @@ export type Database = {
     }
     Enums: {
       account_type: "bank" | "cash"
+      account_type_class:
+        | "asset"
+        | "liability"
+        | "equity"
+        | "revenue"
+        | "expense"
       app_role: "owner" | "accountant" | "viewer" | "employee"
       category_type: "income" | "expense"
+      coa_standard: "nsfo" | "ifrs"
       invoice_status: "draft" | "sent" | "paid" | "cancelled"
+      journal_status: "draft" | "posted" | "reversed"
+      period_status: "open" | "soft_closed" | "hard_closed"
       tax_regime: "simplified" | "common" | "retail_tax"
       transaction_type: "income" | "expense" | "transfer"
     }
@@ -883,9 +1288,19 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["bank", "cash"],
+      account_type_class: [
+        "asset",
+        "liability",
+        "equity",
+        "revenue",
+        "expense",
+      ],
       app_role: ["owner", "accountant", "viewer", "employee"],
       category_type: ["income", "expense"],
+      coa_standard: ["nsfo", "ifrs"],
       invoice_status: ["draft", "sent", "paid", "cancelled"],
+      journal_status: ["draft", "posted", "reversed"],
+      period_status: ["open", "soft_closed", "hard_closed"],
       tax_regime: ["simplified", "common", "retail_tax"],
       transaction_type: ["income", "expense", "transfer"],
     },
