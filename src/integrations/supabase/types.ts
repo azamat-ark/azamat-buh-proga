@@ -1055,6 +1055,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           current_company_id: string | null
+          display_name: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -1064,6 +1065,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           current_company_id?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -1073,6 +1075,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           current_company_id?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -1208,6 +1211,10 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      create_company_with_owner: {
+        Args: { _bin_iin?: string; _company_name: string }
+        Returns: string
+      }
       get_current_user_email: { Args: never; Returns: string }
       has_company_role: {
         Args: {
@@ -1222,6 +1229,7 @@ export type Database = {
         Returns: boolean
       }
       is_payroll_period_open: { Args: { _period_id: string }; Returns: boolean }
+      mask_email: { Args: { _email: string }; Returns: string }
     }
     Enums: {
       account_type: "bank" | "cash"
