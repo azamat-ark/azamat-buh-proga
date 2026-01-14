@@ -1,17 +1,25 @@
 import { useCompany } from '@/hooks/useCompany';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Users, Settings as SettingsIcon } from 'lucide-react';
+import { Building2, Users } from 'lucide-react';
 import { ROLES } from '@/lib/constants';
+import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
+import { AcceptInvitation } from '@/components/settings/AcceptInvitation';
 
 export default function Settings() {
-  const { currentCompany, userRole } = useCompany();
+  const { currentCompany, userRole, isOwner } = useCompany();
 
   return (
     <DashboardLayout>
       <div className="page-header">
-        <h1 className="page-title">Настройки</h1>
+        <div>
+          <h1 className="page-title">Настройки</h1>
+          <p className="text-muted-foreground">Управление организацией</p>
+        </div>
+        {isOwner && <InviteUserDialog />}
       </div>
+
+      <AcceptInvitation />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

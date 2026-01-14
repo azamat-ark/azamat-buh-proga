@@ -35,6 +35,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, ArrowRightLeft, TrendingUp, TrendingDown, Search, Filter } from 'lucide-react';
 import { formatCurrency, formatDate, TRANSACTION_TYPES, CATEGORY_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { ImportCSVDialog } from '@/components/transactions/ImportCSVDialog';
+import { ExportButtons } from '@/components/transactions/ExportButtons';
 import { Database } from '@/integrations/supabase/types';
 
 type TransactionType = Database['public']['Enums']['transaction_type'];
@@ -190,13 +192,17 @@ export default function Transactions() {
             Учёт доходов, расходов и переводов
           </p>
         </div>
-        {canEdit && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-1" />
-                Добавить
-              </Button>
+        <div className="flex gap-2">
+          <ExportButtons data={filteredTransactions} filenamePrefix="transactions" title="Операции" />
+          {canEdit && (
+            <>
+              <ImportCSVDialog />
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Добавить
+                  </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
@@ -349,9 +355,11 @@ export default function Transactions() {
                   Добавить операцию
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              </DialogContent>
+            </Dialog>
+          </>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
