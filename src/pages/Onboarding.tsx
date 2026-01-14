@@ -25,7 +25,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { createCompany } = useCompany();
+  const { createCompany, refetchCompanies } = useCompany();
   const [isCreating, setIsCreating] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
@@ -42,6 +42,8 @@ export default function Onboarding() {
         bin_iin: data.bin_iin || null,
       });
 
+      // Refresh companies list and set the new company as current
+      await refetchCompanies();
       setCompanyId(company.id);
       toast({ title: 'Организация создана', description: 'Теперь вы можете начать работу' });
     } catch (error: any) {

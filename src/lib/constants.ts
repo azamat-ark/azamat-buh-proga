@@ -5,6 +5,13 @@ export const ROLES = {
   owner: { label: 'Владелец', color: 'bg-primary' },
   accountant: { label: 'Бухгалтер', color: 'bg-info' },
   viewer: { label: 'Наблюдатель', color: 'bg-muted' },
+  employee: { label: 'Сотрудник', color: 'bg-warning' },
+} as const;
+
+export const TAX_REGIMES = {
+  simplified: { label: 'Упрощённый режим (СНР)', short: 'Упрощёнка' },
+  common: { label: 'Общеустановленный режим (ОУР)', short: 'ОУР' },
+  retail_tax: { label: 'Розничный налог', short: 'Розница' },
 } as const;
 
 export const INVOICE_STATUSES = {
