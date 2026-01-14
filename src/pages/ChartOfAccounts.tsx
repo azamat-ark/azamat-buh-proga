@@ -228,7 +228,7 @@ export default function ChartOfAccounts() {
               <Icon className="h-4 w-4 text-muted-foreground" />
               <span>{account.name}</span>
               {account.is_system && (
-                <Badge variant="outline\" className="text-xs">
+                <Badge variant="outline" className="text-xs">
                   Системный
                 </Badge>
               )}

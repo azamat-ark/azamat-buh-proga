@@ -19,6 +19,9 @@ import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import Payroll from "./pages/Payroll";
 import Settings from "./pages/Settings";
+import ChartOfAccounts from "./pages/ChartOfAccounts";
+import JournalEntries from "./pages/JournalEntries";
+import AccountingPeriods from "./pages/AccountingPeriods";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +48,9 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/payroll" element={<Payroll />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+              <Route path="/journal" element={<JournalEntries />} />
+              <Route path="/periods" element={<AccountingPeriods />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
