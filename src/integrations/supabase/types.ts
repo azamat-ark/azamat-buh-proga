@@ -106,8 +106,11 @@ export type Database = {
           id: string
           invoice_next_number: number | null
           invoice_prefix: string | null
+          is_vat_payer: boolean | null
+          kbe: string | null
           name: string
           phone: string | null
+          tax_regime: Database["public"]["Enums"]["tax_regime"] | null
         }
         Insert: {
           address?: string | null
@@ -118,8 +121,11 @@ export type Database = {
           id?: string
           invoice_next_number?: number | null
           invoice_prefix?: string | null
+          is_vat_payer?: boolean | null
+          kbe?: string | null
           name: string
           phone?: string | null
+          tax_regime?: Database["public"]["Enums"]["tax_regime"] | null
         }
         Update: {
           address?: string | null
@@ -130,8 +136,11 @@ export type Database = {
           id?: string
           invoice_next_number?: number | null
           invoice_prefix?: string | null
+          is_vat_payer?: boolean | null
+          kbe?: string | null
           name?: string
           phone?: string | null
+          tax_regime?: Database["public"]["Enums"]["tax_regime"] | null
         }
         Relationships: []
       }
@@ -741,9 +750,10 @@ export type Database = {
     }
     Enums: {
       account_type: "bank" | "cash"
-      app_role: "owner" | "accountant" | "viewer"
+      app_role: "owner" | "accountant" | "viewer" | "employee"
       category_type: "income" | "expense"
       invoice_status: "draft" | "sent" | "paid" | "cancelled"
+      tax_regime: "simplified" | "common" | "retail_tax"
       transaction_type: "income" | "expense" | "transfer"
     }
     CompositeTypes: {
@@ -873,9 +883,10 @@ export const Constants = {
   public: {
     Enums: {
       account_type: ["bank", "cash"],
-      app_role: ["owner", "accountant", "viewer"],
+      app_role: ["owner", "accountant", "viewer", "employee"],
       category_type: ["income", "expense"],
       invoice_status: ["draft", "sent", "paid", "cancelled"],
+      tax_regime: ["simplified", "common", "retail_tax"],
       transaction_type: ["income", "expense", "transfer"],
     },
   },

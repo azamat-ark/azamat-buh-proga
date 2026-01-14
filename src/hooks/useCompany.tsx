@@ -20,6 +20,7 @@ interface CompanyContextType {
   userRole: AppRole | null;
   setCurrentCompany: (company: CompanyWithRole) => void;
   createCompany: (input: { name: string; bin_iin?: string | null }) => Promise<Company>;
+  refetchCompanies: () => void;
   canEdit: boolean;
   isOwner: boolean;
 }
@@ -31,7 +32,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
 
-  const { data: companies = [], isLoading } = useQuery({
+  const { data: companies = [], isLoading, refetch: refetchCompanies } = useQuery({
     queryKey: ['companies', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -135,6 +136,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         invoice_next_number: null,
         invoice_prefix: null,
         phone: null,
+        tax_regime: null,
+        is_vat_payer: null,
+        kbe: null,
       } as Company;
     },
     onSuccess: (company) => {
@@ -160,6 +164,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         userRole,
         setCurrentCompany,
         createCompany: createCompanyMutation.mutateAsync,
+        refetchCompanies,
         canEdit,
         isOwner,
       }}
