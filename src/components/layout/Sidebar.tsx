@@ -36,6 +36,12 @@ const mainNav = [
   { href: '/invoices', icon: FileText, label: 'Документы' },
 ];
 
+const accountingNav = [
+  { href: '/chart-of-accounts', icon: FolderOpen, label: 'План счетов' },
+  { href: '/journal', icon: FileText, label: 'Журнал проводок' },
+  { href: '/periods', icon: Calculator, label: 'Периоды' },
+];
+
 const directoryNav = [
   { href: '/counterparties', icon: Users, label: 'Контрагенты' },
   { href: '/items', icon: Package, label: 'Товары/услуги' },
@@ -133,6 +139,17 @@ export function Sidebar({ className }: SidebarProps) {
           {mainNav.map((item) => (
             <NavLink key={item.href} {...item} />
           ))}
+        </div>
+
+        <div className="mt-6">
+          <p className="px-3 mb-2 text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider">
+            Учёт
+          </p>
+          <div className="space-y-1">
+            {accountingNav.map((item) => (
+              <NavLink key={item.href} {...item} />
+            ))}
+          </div>
         </div>
 
         <div className="mt-6">
