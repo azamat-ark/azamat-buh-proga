@@ -15,8 +15,15 @@ import { useToast } from '@/hooks/use-toast';
 import { Calculator, Building2, Loader2, Sparkles } from 'lucide-react';
 
 const companySchema = z.object({
-  name: z.string().min(2, 'Введите название организации'),
-  bin_iin: z.string().optional(),
+  name: z.string()
+    .min(2, 'Название должно содержать минимум 2 символа')
+    .max(255, 'Название не может превышать 255 символов')
+    .transform(val => val.trim()),
+  bin_iin: z.string()
+    .optional()
+    .refine(val => !val || /^[0-9]{12}$/.test(val), {
+      message: 'БИН/ИИН должен содержать ровно 12 цифр',
+    }),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
