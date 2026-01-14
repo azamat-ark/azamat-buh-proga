@@ -933,9 +933,63 @@ export type Database = {
           },
         ]
       }
+      payroll_audit_log: {
+        Row: {
+          action: string
+          after_value: Json | null
+          before_value: Json | null
+          changed_fields: string[] | null
+          company_id: string
+          created_at: string
+          id: string
+          ip_address: unknown
+          payroll_entry_id: string
+          reason: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          after_value?: Json | null
+          before_value?: Json | null
+          changed_fields?: string[] | null
+          company_id: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          payroll_entry_id: string
+          reason?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_value?: Json | null
+          before_value?: Json | null
+          changed_fields?: string[] | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          payroll_entry_id?: string
+          reason?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_entries: {
         Row: {
           accrued: number | null
+          change_reason: string | null
           company_id: string
           created_at: string | null
           date_paid: string | null
@@ -944,9 +998,11 @@ export type Database = {
           note: string | null
           paid: number | null
           period: string
+          period_id: string | null
         }
         Insert: {
           accrued?: number | null
+          change_reason?: string | null
           company_id: string
           created_at?: string | null
           date_paid?: string | null
@@ -955,9 +1011,11 @@ export type Database = {
           note?: string | null
           paid?: number | null
           period: string
+          period_id?: string | null
         }
         Update: {
           accrued?: number | null
+          change_reason?: string | null
           company_id?: string
           created_at?: string | null
           date_paid?: string | null
@@ -966,6 +1024,7 @@ export type Database = {
           note?: string | null
           paid?: number | null
           period?: string
+          period_id?: string | null
         }
         Relationships: [
           {
@@ -980,6 +1039,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
             referencedColumns: ["id"]
           },
         ]
@@ -1126,7 +1192,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_payroll: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_edit_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_edit_payroll: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_unlock_period: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
@@ -1143,6 +1221,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      is_payroll_period_open: { Args: { _period_id: string }; Returns: boolean }
     }
     Enums: {
       account_type: "bank" | "cash"
