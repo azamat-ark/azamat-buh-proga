@@ -725,6 +725,7 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      get_current_user_email: { Args: never; Returns: string }
       has_company_role: {
         Args: {
           _company_id: string
