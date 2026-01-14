@@ -1,0 +1,477 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useCompany } from '@/hooks/useCompany';
+import { useAuth } from '@/hooks/useAuth';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, ArrowRightLeft, TrendingUp, TrendingDown, Search, Filter } from 'lucide-react';
+import { formatCurrency, formatDate, TRANSACTION_TYPES, CATEGORY_TYPES } from '@/lib/constants';
+import { cn } from '@/lib/utils';
+import { Database } from '@/integrations/supabase/types';
+
+type TransactionType = Database['public']['Enums']['transaction_type'];
+
+export default function Transactions() {
+  const { currentCompany, canEdit } = useCompany();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    type: 'income' as TransactionType,
+    amount: '',
+    account_id: '',
+    to_account_id: '',
+    category_id: '',
+    counterparty_id: '',
+    description: '',
+  });
+
+  const { data: transactions = [], isLoading } = useQuery({
+    queryKey: ['transactions', currentCompany?.id, typeFilter],
+    queryFn: async () => {
+      if (!currentCompany) return [];
+      let query = supabase
+        .from('transactions')
+        .select(`
+          *,
+          category:categories(name, color),
+          counterparty:counterparties(name),
+          account:accounts(name),
+          to_account:accounts!transactions_to_account_id_fkey(name)
+        `)
+        .eq('company_id', currentCompany.id)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (typeFilter !== 'all') {
+        query = query.eq('type', typeFilter as TransactionType);
+      }
+
+      const { data } = await query;
+      return data || [];
+    },
+    enabled: !!currentCompany,
+  });
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts', currentCompany?.id],
+    queryFn: async () => {
+      if (!currentCompany) return [];
+      const { data } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .eq('is_active', true);
+      return data || [];
+    },
+    enabled: !!currentCompany,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', currentCompany?.id],
+    queryFn: async () => {
+      if (!currentCompany) return [];
+      const { data } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .eq('is_active', true);
+      return data || [];
+    },
+    enabled: !!currentCompany,
+  });
+
+  const { data: counterparties = [] } = useQuery({
+    queryKey: ['counterparties', currentCompany?.id],
+    queryFn: async () => {
+      if (!currentCompany) return [];
+      const { data } = await supabase
+        .from('counterparties')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .eq('is_active', true);
+      return data || [];
+    },
+    enabled: !!currentCompany,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentCompany || !user) throw new Error('No company or user');
+
+      const { error } = await supabase.from('transactions').insert({
+        company_id: currentCompany.id,
+        date: formData.date,
+        type: formData.type,
+        amount: parseFloat(formData.amount),
+        account_id: formData.account_id || null,
+        to_account_id: formData.type === 'transfer' ? formData.to_account_id || null : null,
+        category_id: formData.type !== 'transfer' ? formData.category_id || null : null,
+        counterparty_id: formData.counterparty_id || null,
+        description: formData.description || null,
+        created_by: user.id,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setIsDialogOpen(false);
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        type: 'income',
+        amount: '',
+        account_id: '',
+        to_account_id: '',
+        category_id: '',
+        counterparty_id: '',
+        description: '',
+      });
+      toast({ title: 'Операция добавлена' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const filteredTransactions = transactions.filter((tx: any) =>
+    tx.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.counterparty?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.category?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredCategories = categories.filter((cat: any) => {
+    if (formData.type === 'income') return cat.type === 'income';
+    if (formData.type === 'expense') return cat.type === 'expense';
+    return false;
+  });
+
+  return (
+    <DashboardLayout>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Операции</h1>
+          <p className="text-muted-foreground">
+            Учёт доходов, расходов и переводов
+          </p>
+        </div>
+        {canEdit && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-1" />
+                Добавить
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Новая операция</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  createMutation.mutate();
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  {(['income', 'expense', 'transfer'] as const).map((type) => {
+                    const info = TRANSACTION_TYPES[type];
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, type })}
+                        className={cn(
+                          'p-3 rounded-lg border text-center transition-colors',
+                          formData.type === type
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        {type === 'income' && <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />}
+                        {type === 'expense' && <TrendingDown className="h-5 w-5 mx-auto mb-1 text-destructive" />}
+                        {type === 'transfer' && <ArrowRightLeft className="h-5 w-5 mx-auto mb-1 text-primary" />}
+                        <span className="text-sm">{info.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="input-group">
+                    <Label>Дата</Label>
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <Label>Сумма *</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <Label>{formData.type === 'transfer' ? 'Со счёта' : 'Счёт'}</Label>
+                  <Select
+                    value={formData.account_id}
+                    onValueChange={(value) => setFormData({ ...formData, account_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите счёт" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((acc: any) => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({formatCurrency(Number(acc.current_balance))})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.type === 'transfer' && (
+                  <div className="input-group">
+                    <Label>На счёт</Label>
+                    <Select
+                      value={formData.to_account_id}
+                      onValueChange={(value) => setFormData({ ...formData, to_account_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите счёт" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts
+                          .filter((acc: any) => acc.id !== formData.account_id)
+                          .map((acc: any) => (
+                            <SelectItem key={acc.id} value={acc.id}>
+                              {acc.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {formData.type !== 'transfer' && (
+                  <div className="input-group">
+                    <Label>Категория</Label>
+                    <Select
+                      value={formData.category_id}
+                      onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите категорию" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredCategories.map((cat: any) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="input-group">
+                  <Label>Контрагент</Label>
+                  <Select
+                    value={formData.counterparty_id}
+                    onValueChange={(value) => setFormData({ ...formData, counterparty_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Выберите контрагента" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {counterparties.map((cp: any) => (
+                        <SelectItem key={cp.id} value={cp.id}>
+                          {cp.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="input-group">
+                  <Label>Описание</Label>
+                  <Input
+                    placeholder="Комментарий к операции"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                  Добавить операцию
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Поиск по описанию, контрагенту..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все типы</SelectItem>
+                <SelectItem value="income">Доходы</SelectItem>
+                <SelectItem value="expense">Расходы</SelectItem>
+                <SelectItem value="transfer">Переводы</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredTransactions.length === 0 ? (
+            <div className="empty-state py-16">
+              <ArrowRightLeft className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-muted-foreground">Нет операций</p>
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Добавить первую операцию
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Дата</TableHead>
+                  <TableHead>Тип</TableHead>
+                  <TableHead>Описание</TableHead>
+                  <TableHead>Категория</TableHead>
+                  <TableHead>Счёт</TableHead>
+                  <TableHead className="text-right">Сумма</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTransactions.map((tx: any) => {
+                  const typeInfo = TRANSACTION_TYPES[tx.type as keyof typeof TRANSACTION_TYPES];
+                  return (
+                    <TableRow key={tx.id} className="table-row-hover">
+                      <TableCell className="font-medium">
+                        {formatDate(tx.date)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={typeInfo.color}>
+                          {typeInfo.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{tx.counterparty?.name || tx.description || '-'}</p>
+                          {tx.description && tx.counterparty?.name && (
+                            <p className="text-sm text-muted-foreground">{tx.description}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {tx.category ? (
+                          <span
+                            className="inline-flex items-center gap-1.5"
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: tx.category.color }}
+                            />
+                            {tx.category.name}
+                          </span>
+                        ) : tx.type === 'transfer' ? (
+                          <span className="text-muted-foreground">Перевод</span>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tx.type === 'transfer' ? (
+                          <span className="text-sm">
+                            {tx.account?.name} → {tx.to_account?.name}
+                          </span>
+                        ) : (
+                          tx.account?.name || '-'
+                        )}
+                      </TableCell>
+                      <TableCell className={cn('text-right font-semibold', typeInfo.color)}>
+                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
+                        {formatCurrency(Number(tx.amount))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </DashboardLayout>
+  );
+}
