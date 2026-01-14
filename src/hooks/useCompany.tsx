@@ -19,7 +19,7 @@ interface CompanyContextType {
   isLoading: boolean;
   userRole: AppRole | null;
   setCurrentCompany: (company: CompanyWithRole) => void;
-  createCompany: (name: string) => Promise<Company>;
+  createCompany: (input: { name: string; bin_iin?: string | null }) => Promise<Company>;
   canEdit: boolean;
   isOwner: boolean;
 }
@@ -69,13 +69,18 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   }, [companies, currentCompanyId]);
 
   const createCompanyMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: { name: string; bin_iin?: string | null }) => {
       if (!user) throw new Error('Not authenticated');
+
+      const { name, bin_iin } = input;
 
       // IMPORTANT: do not request RETURNING rows here, otherwise RLS SELECT policy on
       // companies can block the response before the creator is added as a member.
       // Also ensure the request is made with an auth token (some environments can lose it).
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error('Сессия не активна. Выйдите и войдите заново.');
 
@@ -100,7 +105,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
       const { error: companyError } = await authedSupabase
         .from('companies')
-        .insert({ id: companyId, name });
+        .insert({
+          id: companyId,
+          name,
+          ...(bin_iin ? { bin_iin } : {}),
+        });
 
       if (companyError) throw companyError;
 
@@ -119,7 +128,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         id: companyId,
         name,
         address: null,
-        bin_iin: null,
+        bin_iin: bin_iin ?? null,
         created_at: null,
         default_currency: null,
         email: null,
