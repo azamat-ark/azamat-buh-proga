@@ -71,25 +71,39 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     mutationFn: async (name: string) => {
       if (!user) throw new Error('Not authenticated');
 
-      const { data: company, error: companyError } = await supabase
+      // IMPORTANT: do not request RETURNING rows here, otherwise RLS SELECT policy on
+      // companies can block the response before the creator is added as a member.
+      const companyId = crypto.randomUUID();
+
+      const { error: companyError } = await supabase
         .from('companies')
-        .insert({ name })
-        .select()
-        .single();
+        .insert({ id: companyId, name });
 
       if (companyError) throw companyError;
 
       const { error: memberError } = await supabase
         .from('company_members')
         .insert({
-          company_id: company.id,
+          company_id: companyId,
           user_id: user.id,
           role: 'owner' as AppRole,
         });
 
       if (memberError) throw memberError;
 
-      return company;
+      // Return minimal object (full row will be fetched via companies query)
+      return {
+        id: companyId,
+        name,
+        address: null,
+        bin_iin: null,
+        created_at: null,
+        default_currency: null,
+        email: null,
+        invoice_next_number: null,
+        invoice_prefix: null,
+        phone: null,
+      } as Company;
     },
     onSuccess: (company) => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
