@@ -299,17 +299,20 @@ export default function JournalEntries() {
       .from('journal_entries')
       .select(`
         *,
-        period:accounting_periods(name),
-        document_type:document_types(name),
-        lines:journal_lines(
+        period:accounting_periods!journal_entries_period_id_fkey(name),
+        document_type:document_types!journal_entries_document_type_id_fkey(name),
+        lines:journal_lines!journal_lines_entry_id_fkey(
           *,
-          account:chart_of_accounts(code, name)
+          account:chart_of_accounts!journal_lines_account_id_fkey(code, name)
         )
       `)
       .eq('id', entryId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching journal entry details:', error);
+      throw error;
+    }
     setViewEntry(data as JournalEntry);
   };
 

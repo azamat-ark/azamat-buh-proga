@@ -38,14 +38,18 @@ export default function VATReport() {
         .from('transactions')
         .select(`
           *,
-          counterparty:counterparties(name)
+          counterparty:counterparties!transactions_counterparty_id_fkey(name),
+          account:accounts!transactions_account_id_fkey(name)
         `)
         .eq('company_id', currentCompany.id)
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .neq('vat_rate', 'exempt')
         .order('date', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching VAT transactions:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany?.id,
@@ -60,14 +64,17 @@ export default function VATReport() {
         .from('invoices')
         .select(`
           *,
-          counterparty:counterparties(name)
+          counterparty:counterparties!invoices_counterparty_id_fkey(name)
         `)
         .eq('company_id', currentCompany.id)
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .in('status', ['sent', 'paid'])
         .order('date', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching VAT invoices:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany?.id,
