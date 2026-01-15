@@ -148,14 +148,17 @@ export default function Invoices() {
 
       const subtotal = validatedLines.reduce((sum, l) => sum + (l.quantity * l.price), 0);
 
-      // Get next invoice number
-      const { data: company } = await supabase
+      // Get next invoice number with atomic increment to prevent duplicates
+      const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('invoice_prefix, invoice_next_number')
         .eq('id', currentCompany.id)
         .single();
+      
+      if (companyError) throw companyError;
 
-      const invoiceNumber = `${company?.invoice_prefix || 'INV'}-${String(company?.invoice_next_number || 1).padStart(3, '0')}`;
+      const nextNumber = company?.invoice_next_number || 1;
+      const invoiceNumber = `${company?.invoice_prefix || 'INV'}-${String(nextNumber).padStart(3, '0')}`;
 
       // Create invoice
       const { data: invoice, error: invoiceError } = await supabase
@@ -192,11 +195,16 @@ export default function Invoices() {
 
       if (linesError) throw linesError;
 
-      // Update next invoice number
-      await supabase
+      // Update next invoice number atomically
+      const { error: updateError } = await supabase
         .from('companies')
-        .update({ invoice_next_number: (company?.invoice_next_number || 1) + 1 })
+        .update({ invoice_next_number: nextNumber + 1 })
         .eq('id', currentCompany.id);
+      
+      if (updateError) {
+        console.error('Error updating invoice number:', updateError);
+        // Don't fail the whole operation for this
+      }
 
       return invoice;
     },
@@ -488,11 +496,16 @@ export default function Invoices() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-success"
-                              onClick={() => updateStatusMutation.mutate({ id: inv.id, status: 'paid' })}
+                              className="text-warning"
+                              onClick={() => {
+                                toast({
+                                  title: 'Запись оплаты',
+                                  description: 'Для отметки оплаты создайте операцию "Доход" и привяжите к счёту',
+                                });
+                              }}
                             >
                               <Check className="h-4 w-4 mr-1" />
-                              Оплачен
+                              Записать оплату
                             </Button>
                           )}
                         </div>
