@@ -1,10 +1,11 @@
 import { useCompany } from '@/hooks/useCompany';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Users } from 'lucide-react';
+import { Building2, Users, Palette } from 'lucide-react';
 import { ROLES } from '@/lib/constants';
 import { InviteUserDialog } from '@/components/settings/InviteUserDialog';
 import { AcceptInvitation } from '@/components/settings/AcceptInvitation';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function Settings() {
   const { currentCompany, userRole, isOwner } = useCompany();
@@ -21,7 +22,7 @@ export default function Settings() {
 
       <AcceptInvitation />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -59,6 +60,24 @@ export default function Settings() {
               {userRole === 'accountant' && 'Доступ к учёту и документам'}
               {userRole === 'viewer' && 'Только просмотр отчётов'}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Оформление
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">Тема интерфейса</p>
+                <p className="text-sm text-muted-foreground">Светлая или тёмная</p>
+              </div>
+              <ThemeToggle />
+            </div>
           </CardContent>
         </Card>
       </div>
