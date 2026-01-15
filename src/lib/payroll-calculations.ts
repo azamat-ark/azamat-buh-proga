@@ -1,31 +1,81 @@
 /**
  * Kazakhstan Payroll Calculation Module
- * Based on 2024/2025 Kazakhstan tax legislation
+ * Dynamic tax settings from database
  */
 
-// Minimum Calculation Indicator (МРП) for 2024
-export const MRP_2024 = 3692;
+export interface TaxSettings {
+  id: string;
+  year: number;
+  mrp: number;
+  mzp: number;
+  opv_rate: number;
+  opv_cap_mzp: number;
+  vosms_employee_rate: number;
+  vosms_employer_rate: number;
+  ipn_resident_rate: number;
+  ipn_nonresident_rate: number;
+  standard_deduction_mrp: number;
+  social_tax_rate: number;
+  social_contrib_rate: number;
+  social_contrib_min_mzp: number;
+  social_contrib_max_mzp: number;
+}
 
-// Minimum Monthly Salary (МЗП) for 2024
-export const MZP_2024 = 85000;
-
-// Tax rates for Kazakhstan
-export const TAX_RATES = {
-  OPV: 0.10, // Обязательные пенсионные взносы (10%)
-  VOSMS_EMPLOYEE: 0.02, // Взносы работника на ОСМС (2%)
-  VOSMS_EMPLOYER: 0.03, // Взносы работодателя на ОСМС (3%)
-  IPN: 0.10, // ИПН (10%)
-  SOCIAL_TAX: 0.095, // Социальный налог (9.5%)
-  SOCIAL_CONTRIBUTIONS: 0.035, // Социальные отчисления (3.5%)
+// Default tax settings for 2024 (used when no DB record exists)
+export const DEFAULT_TAX_SETTINGS_2024: Omit<TaxSettings, 'id'> = {
+  year: 2024,
+  mrp: 3692,
+  mzp: 85000,
+  opv_rate: 0.10,
+  opv_cap_mzp: 50,
+  vosms_employee_rate: 0.02,
+  vosms_employer_rate: 0.03,
+  ipn_resident_rate: 0.10,
+  ipn_nonresident_rate: 0.20,
+  standard_deduction_mrp: 14,
+  social_tax_rate: 0.095,
+  social_contrib_rate: 0.035,
+  social_contrib_min_mzp: 1,
+  social_contrib_max_mzp: 7,
 };
 
-// Standard deduction is 14 MRP
-export const STANDARD_DEDUCTION_MRP = 14;
+// Default tax settings for 2025
+export const DEFAULT_TAX_SETTINGS_2025: Omit<TaxSettings, 'id'> = {
+  year: 2025,
+  mrp: 3932,
+  mzp: 85000,
+  opv_rate: 0.10,
+  opv_cap_mzp: 50,
+  vosms_employee_rate: 0.02,
+  vosms_employer_rate: 0.03,
+  ipn_resident_rate: 0.10,
+  ipn_nonresident_rate: 0.20,
+  standard_deduction_mrp: 14,
+  social_tax_rate: 0.095,
+  social_contrib_rate: 0.035,
+  social_contrib_min_mzp: 1,
+  social_contrib_max_mzp: 7,
+};
+
+export function getDefaultTaxSettings(year: number): Omit<TaxSettings, 'id'> {
+  if (year >= 2025) return { ...DEFAULT_TAX_SETTINGS_2025, year };
+  return { ...DEFAULT_TAX_SETTINGS_2024, year };
+}
+
+export interface EmployeeDeductionFlags {
+  apply_opv: boolean;
+  apply_vosms_employee: boolean;
+  apply_vosms_employer: boolean;
+  apply_social_tax: boolean;
+  apply_social_contributions: boolean;
+  apply_standard_deduction: boolean;
+}
 
 export interface PayrollInput {
   grossSalary: number;
-  employmentType: 'full_time' | 'contractor';
   isTaxResident: boolean;
+  flags: EmployeeDeductionFlags;
+  taxSettings: TaxSettings | Omit<TaxSettings, 'id'>;
   workedDays?: number;
   totalWorkDays?: number;
 }
@@ -35,140 +85,157 @@ export interface PayrollCalculation {
   grossSalary: number;
   
   // Employee deductions (withheld from salary)
-  opv: number; // Пенсионные взносы
-  vosmsEmployee: number; // ВОСМС работника
-  ipn: number; // ИПН
-  totalDeductions: number;
+  opv: number;
+  opvBase: number;
+  vosmsEmployee: number;
+  ipn: number;
+  totalEmployeeDeductions: number;
+  
+  // Taxable income breakdown
+  taxableIncome: number;
+  standardDeduction: number;
   
   // Net salary (what employee receives)
   netSalary: number;
   
   // Employer obligations (paid additionally by employer)
-  socialTax: number; // Социальный налог
-  socialContributions: number; // Социальные отчисления
-  vosmsEmployer: number; // ВОСМС работодателя
+  socialTax: number;
+  socialTaxBase: number;
+  socialContributions: number;
+  socialContribBase: number;
+  vosmsEmployer: number;
   totalEmployerCost: number;
   
-  // Breakdown for display
-  taxableIncome: number;
-  standardDeduction: number;
+  // Rates used (for display)
+  ratesUsed: {
+    opvRate: number;
+    vosmsEmployeeRate: number;
+    vosmsEmployerRate: number;
+    ipnRate: number;
+    socialTaxRate: number;
+    socialContribRate: number;
+    mrp: number;
+    mzp: number;
+    standardDeductionMrp: number;
+  };
 }
 
 /**
- * Calculate payroll for Kazakhstan employee
+ * Round to integer KZT (consistent rounding)
+ */
+function roundKZT(amount: number): number {
+  return Math.round(amount);
+}
+
+/**
+ * Calculate payroll for Kazakhstan employee with configurable flags
  */
 export function calculatePayroll(input: PayrollInput): PayrollCalculation {
-  const { grossSalary, employmentType, isTaxResident, workedDays, totalWorkDays } = input;
+  const { grossSalary, isTaxResident, flags, taxSettings, workedDays, totalWorkDays } = input;
   
   // Adjust for partial month if needed
   let adjustedGross = grossSalary;
   if (workedDays !== undefined && totalWorkDays !== undefined && totalWorkDays > 0) {
-    adjustedGross = (grossSalary / totalWorkDays) * workedDays;
+    adjustedGross = roundKZT((grossSalary / totalWorkDays) * workedDays);
   }
   
-  // For contractors (ГПХ), different rules apply
-  if (employmentType === 'contractor') {
-    return calculateContractorPayroll(adjustedGross, isTaxResident);
-  }
+  const { mrp, mzp } = taxSettings;
   
   // ==========================================
   // EMPLOYEE DEDUCTIONS
   // ==========================================
   
-  // 1. OPV - Пенсионные взносы (10% от gross, max 50 MZP)
-  const opvBase = Math.min(adjustedGross, MZP_2024 * 50);
-  const opv = Math.round(opvBase * TAX_RATES.OPV);
+  // 1. OPV - Пенсионные взносы
+  let opvBase = 0;
+  let opv = 0;
+  if (flags.apply_opv) {
+    opvBase = Math.min(adjustedGross, mzp * taxSettings.opv_cap_mzp);
+    opv = roundKZT(opvBase * taxSettings.opv_rate);
+  }
   
-  // 2. VOSMS Employee - Взносы на ОСМС (2%)
-  const vosmsEmployee = Math.round(adjustedGross * TAX_RATES.VOSMS_EMPLOYEE);
+  // 2. VOSMS Employee - Взносы на ОСМС
+  let vosmsEmployee = 0;
+  if (flags.apply_vosms_employee) {
+    vosmsEmployee = roundKZT(adjustedGross * taxSettings.vosms_employee_rate);
+  }
   
   // 3. Calculate taxable income for IPN
-  // Taxable = Gross - OPV - Standard Deduction (14 MRP)
-  const standardDeduction = isTaxResident ? MRP_2024 * STANDARD_DEDUCTION_MRP : 0;
+  let standardDeduction = 0;
+  if (flags.apply_standard_deduction && isTaxResident) {
+    standardDeduction = mrp * taxSettings.standard_deduction_mrp;
+  }
+  
   let taxableIncome = adjustedGross - opv - standardDeduction;
   taxableIncome = Math.max(0, taxableIncome);
   
-  // 4. IPN - Индивидуальный подоходный налог (10%)
-  // For residents: 10% of taxable income
-  // For non-residents: 20% without deductions (simplified here as 10%)
-  const ipnRate = isTaxResident ? TAX_RATES.IPN : 0.20;
-  let ipn = Math.round(taxableIncome * ipnRate);
-  
-  // IPN reduction by 90% if conditions met (simplified - not applying here)
-  // Apply minimum IPN check
+  // 4. IPN - Индивидуальный подоходный налог
+  const ipnRate = isTaxResident ? taxSettings.ipn_resident_rate : taxSettings.ipn_nonresident_rate;
+  let ipn = roundKZT(taxableIncome * ipnRate);
   ipn = Math.max(0, ipn);
   
-  const totalDeductions = opv + vosmsEmployee + ipn;
-  const netSalary = adjustedGross - totalDeductions;
+  const totalEmployeeDeductions = opv + vosmsEmployee + ipn;
+  const netSalary = adjustedGross - totalEmployeeDeductions;
   
   // ==========================================
   // EMPLOYER OBLIGATIONS
   // ==========================================
   
-  // 5. Social Tax - Социальный налог (9.5%)
-  // Base = Gross - OPV
-  // Social Tax = 9.5% of base - Social Contributions
+  // 5. Social Tax - Социальный налог
   const socialTaxBase = adjustedGross - opv;
   
-  // 6. Social Contributions - Социальные отчисления (3.5%)
-  // Base is between 1 MZP and 7 MZP
-  const socContribBase = Math.min(Math.max(adjustedGross, MZP_2024), MZP_2024 * 7);
-  const socialContributions = Math.round(socContribBase * TAX_RATES.SOCIAL_CONTRIBUTIONS);
+  // 6. Social Contributions - Социальные отчисления
+  let socialContribBase = 0;
+  let socialContributions = 0;
+  if (flags.apply_social_contributions) {
+    socialContribBase = Math.min(
+      Math.max(adjustedGross, mzp * taxSettings.social_contrib_min_mzp),
+      mzp * taxSettings.social_contrib_max_mzp
+    );
+    socialContributions = roundKZT(socialContribBase * taxSettings.social_contrib_rate);
+  }
   
   // Social tax minus social contributions
-  let socialTax = Math.round(socialTaxBase * TAX_RATES.SOCIAL_TAX) - socialContributions;
-  socialTax = Math.max(0, socialTax);
+  let socialTax = 0;
+  if (flags.apply_social_tax) {
+    socialTax = roundKZT(socialTaxBase * taxSettings.social_tax_rate) - socialContributions;
+    socialTax = Math.max(0, socialTax);
+  }
   
-  // 7. VOSMS Employer - Взносы работодателя на ОСМС (3%)
-  const vosmsEmployer = Math.round(adjustedGross * TAX_RATES.VOSMS_EMPLOYER);
+  // 7. VOSMS Employer - Взносы работодателя на ОСМС
+  let vosmsEmployer = 0;
+  if (flags.apply_vosms_employer) {
+    vosmsEmployer = roundKZT(adjustedGross * taxSettings.vosms_employer_rate);
+  }
   
   const totalEmployerCost = adjustedGross + socialTax + socialContributions + vosmsEmployer;
   
   return {
     grossSalary: adjustedGross,
     opv,
+    opvBase,
     vosmsEmployee,
     ipn,
-    totalDeductions,
+    totalEmployeeDeductions,
+    taxableIncome,
+    standardDeduction,
     netSalary,
     socialTax,
+    socialTaxBase,
     socialContributions,
+    socialContribBase,
     vosmsEmployer,
     totalEmployerCost,
-    taxableIncome,
-    standardDeduction,
-  };
-}
-
-/**
- * Calculate payroll for contractor (ГПХ)
- * Contractors don't have OPV/Social Tax withheld by employer
- */
-function calculateContractorPayroll(grossSalary: number, isTaxResident: boolean): PayrollCalculation {
-  // For contractors: only IPN is withheld
-  // OPV is paid by contractor themselves
-  
-  const standardDeduction = isTaxResident ? MRP_2024 * STANDARD_DEDUCTION_MRP : 0;
-  const taxableIncome = Math.max(0, grossSalary - standardDeduction);
-  
-  const ipnRate = isTaxResident ? TAX_RATES.IPN : 0.20;
-  const ipn = Math.round(taxableIncome * ipnRate);
-  
-  const netSalary = grossSalary - ipn;
-  
-  return {
-    grossSalary,
-    opv: 0,
-    vosmsEmployee: 0,
-    ipn,
-    totalDeductions: ipn,
-    netSalary,
-    socialTax: 0,
-    socialContributions: 0,
-    vosmsEmployer: 0,
-    totalEmployerCost: grossSalary,
-    taxableIncome,
-    standardDeduction,
+    ratesUsed: {
+      opvRate: taxSettings.opv_rate,
+      vosmsEmployeeRate: taxSettings.vosms_employee_rate,
+      vosmsEmployerRate: taxSettings.vosms_employer_rate,
+      ipnRate: ipnRate,
+      socialTaxRate: taxSettings.social_tax_rate,
+      socialContribRate: taxSettings.social_contrib_rate,
+      mrp: mrp,
+      mzp: mzp,
+      standardDeductionMrp: taxSettings.standard_deduction_mrp,
+    },
   };
 }
 
@@ -181,16 +248,16 @@ export function calculateVAT(baseAmount: number, vatRate: '0' | '5' | '12' | 'ex
   totalAmount: number 
 } {
   if (vatRate === 'exempt' || vatRate === '0') {
-    return { baseAmount, vatAmount: 0, totalAmount: baseAmount };
+    return { baseAmount: roundKZT(baseAmount), vatAmount: 0, totalAmount: roundKZT(baseAmount) };
   }
   
   const rate = parseInt(vatRate) / 100;
-  const vatAmount = Math.round(baseAmount * rate * 100) / 100;
+  const vatAmount = roundKZT(baseAmount * rate);
   
   return {
-    baseAmount,
+    baseAmount: roundKZT(baseAmount),
     vatAmount,
-    totalAmount: baseAmount + vatAmount,
+    totalAmount: roundKZT(baseAmount) + vatAmount,
   };
 }
 
@@ -203,14 +270,14 @@ export function extractVATFromTotal(totalAmount: number, vatRate: '0' | '5' | '1
   totalAmount: number;
 } {
   if (vatRate === 'exempt' || vatRate === '0') {
-    return { baseAmount: totalAmount, vatAmount: 0, totalAmount };
+    return { baseAmount: roundKZT(totalAmount), vatAmount: 0, totalAmount: roundKZT(totalAmount) };
   }
   
   const rate = parseInt(vatRate) / 100;
-  const baseAmount = Math.round((totalAmount / (1 + rate)) * 100) / 100;
-  const vatAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
+  const baseAmount = roundKZT(totalAmount / (1 + rate));
+  const vatAmount = roundKZT(totalAmount) - baseAmount;
   
-  return { baseAmount, vatAmount, totalAmount };
+  return { baseAmount, vatAmount, totalAmount: roundKZT(totalAmount) };
 }
 
 /**
@@ -235,6 +302,13 @@ export function getPeriodString(date: Date): string {
 }
 
 /**
+ * Get year from period string YYYY-MM
+ */
+export function getYearFromPeriod(period: string): number {
+  return parseInt(period.split('-')[0], 10);
+}
+
+/**
  * Get working days in a month (simplified - doesn't account for holidays)
  */
 export function getWorkingDaysInMonth(year: number, month: number): number {
@@ -250,3 +324,43 @@ export function getWorkingDaysInMonth(year: number, month: number): number {
   
   return workingDays;
 }
+
+/**
+ * Get default flags for employment type
+ */
+export function getDefaultFlags(employmentType: 'full_time' | 'contractor'): EmployeeDeductionFlags {
+  if (employmentType === 'contractor') {
+    return {
+      apply_opv: false, // Contractor pays OPV themselves
+      apply_vosms_employee: false,
+      apply_vosms_employer: false,
+      apply_social_tax: false,
+      apply_social_contributions: false,
+      apply_standard_deduction: true,
+    };
+  }
+  
+  return {
+    apply_opv: true,
+    apply_vosms_employee: true,
+    apply_vosms_employer: true,
+    apply_social_tax: true,
+    apply_social_contributions: true,
+    apply_standard_deduction: true,
+  };
+}
+
+/**
+ * Payroll account mapping types
+ */
+export const PAYROLL_ACCOUNT_MAPPING_TYPES = {
+  SALARY_EXPENSE: 'salary_expense',
+  SALARY_PAYABLE: 'salary_payable',
+  OPV_PAYABLE: 'opv_payable',
+  VOSMS_PAYABLE: 'vosms_payable',
+  IPN_PAYABLE: 'ipn_payable',
+  SOCIAL_TAX_PAYABLE: 'social_tax_payable',
+  SOCIAL_CONTRIB_PAYABLE: 'social_contrib_payable',
+} as const;
+
+export type PayrollAccountMappingType = typeof PAYROLL_ACCOUNT_MAPPING_TYPES[keyof typeof PAYROLL_ACCOUNT_MAPPING_TYPES];

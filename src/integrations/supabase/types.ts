@@ -270,46 +270,55 @@ export type Database = {
         Row: {
           account_class: Database["public"]["Enums"]["account_type_class"]
           allow_manual_entry: boolean | null
+          balance_sheet_group: string | null
           code: string
           company_id: string
           created_at: string | null
           description: string | null
           id: string
           is_active: boolean | null
+          is_current: boolean | null
           is_system: boolean | null
           name: string
           name_kz: string | null
           parent_id: string | null
+          pl_group: string | null
           updated_at: string | null
         }
         Insert: {
           account_class: Database["public"]["Enums"]["account_type_class"]
           allow_manual_entry?: boolean | null
+          balance_sheet_group?: string | null
           code: string
           company_id: string
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_current?: boolean | null
           is_system?: boolean | null
           name: string
           name_kz?: string | null
           parent_id?: string | null
+          pl_group?: string | null
           updated_at?: string | null
         }
         Update: {
           account_class?: Database["public"]["Enums"]["account_type_class"]
           allow_manual_entry?: boolean | null
+          balance_sheet_group?: string | null
           code?: string
           company_id?: string
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          is_current?: boolean | null
           is_system?: boolean | null
           name?: string
           name_kz?: string | null
           parent_id?: string | null
+          pl_group?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -542,6 +551,12 @@ export type Database = {
       }
       employees: {
         Row: {
+          apply_opv: boolean
+          apply_social_contributions: boolean
+          apply_social_tax: boolean
+          apply_standard_deduction: boolean
+          apply_vosms_employee: boolean
+          apply_vosms_employer: boolean
           company_id: string
           created_at: string | null
           employment_type: Database["public"]["Enums"]["employment_type"] | null
@@ -558,6 +573,12 @@ export type Database = {
           termination_date: string | null
         }
         Insert: {
+          apply_opv?: boolean
+          apply_social_contributions?: boolean
+          apply_social_tax?: boolean
+          apply_standard_deduction?: boolean
+          apply_vosms_employee?: boolean
+          apply_vosms_employer?: boolean
           company_id: string
           created_at?: string | null
           employment_type?:
@@ -576,6 +597,12 @@ export type Database = {
           termination_date?: string | null
         }
         Update: {
+          apply_opv?: boolean
+          apply_social_contributions?: boolean
+          apply_social_tax?: boolean
+          apply_standard_deduction?: boolean
+          apply_vosms_employee?: boolean
+          apply_vosms_employer?: boolean
           company_id?: string
           created_at?: string | null
           employment_type?:
@@ -706,6 +733,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          amount_due: number | null
           company_id: string
           counterparty_id: string | null
           created_at: string | null
@@ -725,6 +753,7 @@ export type Database = {
           vat_rate: Database["public"]["Enums"]["vat_rate"] | null
         }
         Insert: {
+          amount_due?: number | null
           company_id: string
           counterparty_id?: string | null
           created_at?: string | null
@@ -744,6 +773,7 @@ export type Database = {
           vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Update: {
+          amount_due?: number | null
           company_id?: string
           counterparty_id?: string | null
           created_at?: string | null
@@ -1037,6 +1067,45 @@ export type Database = {
           },
         ]
       }
+      payroll_account_mappings: {
+        Row: {
+          account_id: string
+          company_id: string
+          created_at: string | null
+          id: string
+          mapping_type: string
+        }
+        Insert: {
+          account_id: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          mapping_type: string
+        }
+        Update: {
+          account_id?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          mapping_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_account_mappings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_account_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_audit_log: {
         Row: {
           action: string
@@ -1102,13 +1171,22 @@ export type Database = {
           id: string
           ipn: number | null
           journal_entry_id: string | null
+          net_salary: number | null
           note: string | null
           opv: number | null
+          opv_base: number | null
           paid: number | null
           period: string
           period_id: string | null
+          social_contrib_base: number | null
           social_contributions: number | null
           social_tax: number | null
+          social_tax_base: number | null
+          standard_deduction: number | null
+          tax_settings_id: string | null
+          taxable_income: number | null
+          total_employee_deductions: number | null
+          total_employer_cost: number | null
           vosms_employee: number | null
           vosms_employer: number | null
           worked_days: number | null
@@ -1125,13 +1203,22 @@ export type Database = {
           id?: string
           ipn?: number | null
           journal_entry_id?: string | null
+          net_salary?: number | null
           note?: string | null
           opv?: number | null
+          opv_base?: number | null
           paid?: number | null
           period: string
           period_id?: string | null
+          social_contrib_base?: number | null
           social_contributions?: number | null
           social_tax?: number | null
+          social_tax_base?: number | null
+          standard_deduction?: number | null
+          tax_settings_id?: string | null
+          taxable_income?: number | null
+          total_employee_deductions?: number | null
+          total_employer_cost?: number | null
           vosms_employee?: number | null
           vosms_employer?: number | null
           worked_days?: number | null
@@ -1148,13 +1235,22 @@ export type Database = {
           id?: string
           ipn?: number | null
           journal_entry_id?: string | null
+          net_salary?: number | null
           note?: string | null
           opv?: number | null
+          opv_base?: number | null
           paid?: number | null
           period?: string
           period_id?: string | null
+          social_contrib_base?: number | null
           social_contributions?: number | null
           social_tax?: number | null
+          social_tax_base?: number | null
+          standard_deduction?: number | null
+          tax_settings_id?: string | null
+          taxable_income?: number | null
+          total_employee_deductions?: number | null
+          total_employer_cost?: number | null
           vosms_employee?: number | null
           vosms_employer?: number | null
           worked_days?: number | null
@@ -1187,6 +1283,13 @@ export type Database = {
             columns: ["period_id"]
             isOneToOne: false
             referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_tax_settings_id_fkey"
+            columns: ["tax_settings_id"]
+            isOneToOne: false
+            referencedRelation: "tax_settings"
             referencedColumns: ["id"]
           },
         ]
@@ -1232,6 +1335,77 @@ export type Database = {
           },
         ]
       }
+      tax_settings: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          ipn_nonresident_rate: number
+          ipn_resident_rate: number
+          mrp: number
+          mzp: number
+          opv_cap_mzp: number
+          opv_rate: number
+          social_contrib_max_mzp: number
+          social_contrib_min_mzp: number
+          social_contrib_rate: number
+          social_tax_rate: number
+          standard_deduction_mrp: number
+          updated_at: string | null
+          vosms_employee_rate: number
+          vosms_employer_rate: number
+          year: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          ipn_nonresident_rate?: number
+          ipn_resident_rate?: number
+          mrp?: number
+          mzp?: number
+          opv_cap_mzp?: number
+          opv_rate?: number
+          social_contrib_max_mzp?: number
+          social_contrib_min_mzp?: number
+          social_contrib_rate?: number
+          social_tax_rate?: number
+          standard_deduction_mrp?: number
+          updated_at?: string | null
+          vosms_employee_rate?: number
+          vosms_employer_rate?: number
+          year: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          ipn_nonresident_rate?: number
+          ipn_resident_rate?: number
+          mrp?: number
+          mzp?: number
+          opv_cap_mzp?: number
+          opv_rate?: number
+          social_contrib_max_mzp?: number
+          social_contrib_min_mzp?: number
+          social_contrib_rate?: number
+          social_tax_rate?: number
+          standard_deduction_mrp?: number
+          updated_at?: string | null
+          vosms_employee_rate?: number
+          vosms_employer_rate?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string | null
@@ -1245,6 +1419,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          invoice_id: string | null
           to_account_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           vat_amount: number | null
@@ -1262,6 +1437,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          invoice_id?: string | null
           to_account_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           vat_amount?: number | null
@@ -1279,6 +1455,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          invoice_id?: string | null
           to_account_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           vat_amount?: number | null
@@ -1311,6 +1488,13 @@ export type Database = {
             columns: ["counterparty_id"]
             isOneToOne: false
             referencedRelation: "counterparties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
