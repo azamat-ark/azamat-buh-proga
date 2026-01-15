@@ -482,6 +482,13 @@ export default function Payroll() {
         throw new Error(errors.join(', '));
       }
 
+      // Generate entry number
+      const entryNumber = `PAY-${selectedPeriod}-${Date.now().toString(36).toUpperCase()}`;
+      
+      // Calculate last day of month (reuse year/month from line 452)
+      const lastDay = new Date(year, month, 0).getDate();
+      const entryDate = `${selectedPeriod}-${String(lastDay).padStart(2, '0')}`;
+
       // Create journal entry first
       const { data: journalEntry, error: jeError } = await supabase
         .from('journal_entries')
@@ -489,7 +496,8 @@ export default function Payroll() {
           company_id: currentCompany.id,
           period_id: matchingPeriod.id,
           document_type_id: payrollDocType.id,
-          date: `${selectedPeriod}-28`, // Last day of month approximation
+          entry_number: entryNumber,
+          date: entryDate,
           description: `Начисление ЗП за ${selectedPeriod}`,
           status: 'posted',
           posted_at: new Date().toISOString(),
