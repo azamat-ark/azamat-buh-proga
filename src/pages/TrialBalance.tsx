@@ -23,7 +23,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, CheckCircle, AlertCircle } from 'lucide-react';
-import { calculateTrialBalance, formatKZT, type ChartAccount, type JournalLine, type OpeningBalance } from '@/lib/accounting-utils';
+import { 
+  calculateTrialBalance, 
+  type ChartAccount, 
+  type JournalLine, 
+  type OpeningBalance 
+} from '@/lib/accounting-utils';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
 
@@ -90,7 +95,11 @@ export default function TrialBalance() {
           .in('entry_id', entryIds);
         
         if (linesError) throw linesError;
-        lines = linesData || [];
+        lines = (linesData || []).map(l => ({
+          account_id: l.account_id,
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+        }));
       }
       
       // Get opening balances for the period
@@ -102,10 +111,13 @@ export default function TrialBalance() {
       
       if (openingsError) throw openingsError;
       
-      return {
-        lines: lines as JournalLine[],
-        openings: (openingsData || []) as OpeningBalance[],
-      };
+      const openings: OpeningBalance[] = (openingsData || []).map(ob => ({
+        account_id: ob.account_id,
+        opening_debit: Number(ob.opening_debit) || 0,
+        opening_credit: Number(ob.opening_credit) || 0,
+      }));
+      
+      return { lines, openings };
     },
     enabled: !!currentCompany?.id && !!selectedPeriodId,
   });

@@ -23,7 +23,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, TrendingUp, TrendingDown } from 'lucide-react';
-import { calculateTrialBalance, buildProfitLoss, type ChartAccount, type JournalLine, type OpeningBalance } from '@/lib/accounting-utils';
+import { 
+  calculateTrialBalance, 
+  buildProfitLoss, 
+  type ChartAccount, 
+  type JournalLine, 
+  type OpeningBalance 
+} from '@/lib/accounting-utils';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
 
@@ -65,10 +71,10 @@ export default function ProfitLoss() {
   });
 
   // Fetch journal lines for period
-  const { data: journalData = { lines: [], openings: [] } } = useQuery({
+  const { data: journalData = { lines: [] } } = useQuery({
     queryKey: ['journal-lines-pl', currentCompany?.id, selectedPeriodId],
     queryFn: async () => {
-      if (!currentCompany?.id || !selectedPeriodId) return { lines: [], openings: [] };
+      if (!currentCompany?.id || !selectedPeriodId) return { lines: [] };
       
       const { data: entries, error: entriesError } = await supabase
         .from('journal_entries')
@@ -89,10 +95,14 @@ export default function ProfitLoss() {
           .in('entry_id', entryIds);
         
         if (linesError) throw linesError;
-        lines = linesData || [];
+        lines = (linesData || []).map(l => ({
+          account_id: l.account_id,
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+        }));
       }
       
-      return { lines: lines as JournalLine[], openings: [] as OpeningBalance[] };
+      return { lines };
     },
     enabled: !!currentCompany?.id && !!selectedPeriodId,
   });
@@ -100,7 +110,8 @@ export default function ProfitLoss() {
   // Calculate P&L
   const profitLoss = useMemo(() => {
     if (!chartAccounts.length) return null;
-    const trialBalance = calculateTrialBalance(chartAccounts, journalData.lines, []);
+    const emptyOpenings: OpeningBalance[] = [];
+    const trialBalance = calculateTrialBalance(chartAccounts, journalData.lines, emptyOpenings);
     return buildProfitLoss(trialBalance);
   }, [chartAccounts, journalData]);
 
