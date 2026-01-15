@@ -14,11 +14,46 @@ interface ExportColumn {
   accessor: string | ((row: any) => string);
 }
 
+/**
+ * Export data to CSV with column definitions
+ */
 export function exportToCSV(
   data: any[],
-  columns: ExportColumn[],
-  filename: string
+  columnsOrFilename: ExportColumn[] | string,
+  filename?: string
 ): void {
+  // Handle two signatures:
+  // 1. exportToCSV(data, columns, filename)
+  // 2. exportToCSV(data, filename) - for simple object arrays
+  
+  if (typeof columnsOrFilename === 'string') {
+    // Simple export - use object keys as columns
+    if (data.length === 0) return;
+    
+    const keys = Object.keys(data[0]);
+    const headers = keys;
+    const rows = data.map(row =>
+      keys.map(key => {
+        const value = row[key];
+        const stringValue = String(value ?? '');
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      })
+    );
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, `${columnsOrFilename}.csv`);
+    return;
+  }
+  
+  const columns = columnsOrFilename;
   const headers = columns.map(col => col.header);
   const rows = data.map(row =>
     columns.map(col => {
@@ -41,15 +76,75 @@ export function exportToCSV(
 
   // Add BOM for proper UTF-8 encoding in Excel
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, `${filename}.csv`);
+  downloadBlob(blob, `${filename || 'export'}.csv`);
 }
 
+/**
+ * Export data to PDF with column definitions
+ */
 export function exportToPDF(
-  data: any[],
-  columns: ExportColumn[],
-  filename: string,
-  title?: string
+  dataOrTitle: any[] | string,
+  columnsOrHeaders: ExportColumn[] | string[],
+  filenameOrRows?: string | string[][],
+  titleOrFilename?: string,
 ): void {
+  // Handle two signatures:
+  // 1. exportToPDF(data, columns, filename, title) - old
+  // 2. exportToPDF(title, headers, rows, filename) - new for reports
+  
+  if (typeof dataOrTitle === 'string') {
+    // New signature: exportToPDF(title, headers, rows, filename)
+    const title = dataOrTitle;
+    const headers = columnsOrHeaders as string[];
+    const rows = filenameOrRows as string[][];
+    const filename = titleOrFilename as string;
+    
+    const doc = new jsPDF();
+    
+    // Add title (may contain newlines)
+    const titleLines = title.split('\n');
+    let yPos = 20;
+    doc.setFontSize(16);
+    titleLines.forEach((line, idx) => {
+      if (idx === 0) {
+        doc.setFontSize(16);
+      } else {
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+      }
+      doc.text(line, 14, yPos);
+      yPos += 8;
+    });
+    doc.setTextColor(0);
+
+    doc.autoTable({
+      head: [headers],
+      body: rows,
+      startY: yPos + 5,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250],
+      },
+    });
+
+    doc.save(`${filename}.pdf`);
+    return;
+  }
+  
+  // Old signature: exportToPDF(data, columns, filename, title)
+  const data = dataOrTitle;
+  const columns = columnsOrHeaders as ExportColumn[];
+  const filename = filenameOrRows as string;
+  const title = titleOrFilename;
+  
   const doc = new jsPDF();
   
   // Add title

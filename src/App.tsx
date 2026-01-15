@@ -23,6 +23,11 @@ import Settings from "./pages/Settings";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
 import JournalEntries from "./pages/JournalEntries";
 import AccountingPeriods from "./pages/AccountingPeriods";
+import TrialBalance from "./pages/TrialBalance";
+import BalanceSheet from "./pages/BalanceSheet";
+import ProfitLoss from "./pages/ProfitLoss";
+import VATReport from "./pages/VATReport";
+import SecurityChecklist from "./pages/SecurityChecklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +58,11 @@ const App = () => (
               <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
               <Route path="/journal" element={<JournalEntries />} />
               <Route path="/periods" element={<AccountingPeriods />} />
+              <Route path="/reports/trial-balance" element={<TrialBalance />} />
+              <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
+              <Route path="/reports/profit-loss" element={<ProfitLoss />} />
+              <Route path="/reports/vat" element={<VATReport />} />
+              <Route path="/security" element={<SecurityChecklist />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             </BrowserRouter>

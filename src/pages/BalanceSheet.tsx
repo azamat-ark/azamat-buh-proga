@@ -23,7 +23,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, CheckCircle, AlertCircle } from 'lucide-react';
-import { calculateTrialBalance, buildBalanceSheet, formatKZT, type ChartAccount, type JournalLine, type OpeningBalance } from '@/lib/accounting-utils';
+import { 
+  calculateTrialBalance, 
+  buildBalanceSheet, 
+  type ChartAccount, 
+  type JournalLine, 
+  type OpeningBalance,
+  type BalanceSheetSection,
+} from '@/lib/accounting-utils';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
 
@@ -89,7 +96,11 @@ export default function BalanceSheet() {
           .in('entry_id', entryIds);
         
         if (linesError) throw linesError;
-        lines = linesData || [];
+        lines = (linesData || []).map(l => ({
+          account_id: l.account_id,
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+        }));
       }
       
       const { data: openingsData, error: openingsError } = await supabase
@@ -100,10 +111,13 @@ export default function BalanceSheet() {
       
       if (openingsError) throw openingsError;
       
-      return {
-        lines: lines as JournalLine[],
-        openings: (openingsData || []) as OpeningBalance[],
-      };
+      const openings: OpeningBalance[] = (openingsData || []).map(ob => ({
+        account_id: ob.account_id,
+        opening_debit: Number(ob.opening_debit) || 0,
+        opening_credit: Number(ob.opening_credit) || 0,
+      }));
+      
+      return { lines, openings };
     },
     enabled: !!currentCompany?.id && !!selectedPeriodId,
   });
@@ -142,8 +156,8 @@ export default function BalanceSheet() {
     });
     rows.push({ 'Раздел': '', 'Счёт': 'Итого краткосрочные', 'Сумма': balanceSheet.currentLiabilities.total });
     
-    rows.push({ 'Раздел': balanceSheet.equity.title, 'Счёт': '', 'Сумма': '' });
-    balanceSheet.equity.accounts.forEach(acc => {
+    rows.push({ 'Раздел': 'Капитал', 'Счёт': '', 'Сумма': '' });
+    balanceSheet.equity.items.forEach(acc => {
       rows.push({ 'Раздел': '', 'Счёт': `${acc.code} ${acc.name}`, 'Сумма': Math.abs(acc.closingCredit - acc.closingDebit) });
     });
     rows.push({ 'Раздел': '', 'Счёт': 'Итого капитал', 'Сумма': balanceSheet.equity.total });
@@ -177,8 +191,8 @@ export default function BalanceSheet() {
     });
     rows.push(['', 'Итого краткосрочные', formatCurrency(balanceSheet.currentLiabilities.total)]);
     
-    rows.push([balanceSheet.equity.title, '', '']);
-    balanceSheet.equity.accounts.forEach(acc => {
+    rows.push(['Капитал', '', '']);
+    balanceSheet.equity.items.forEach(acc => {
       rows.push(['', `${acc.code} ${acc.name}`, formatCurrency(Math.abs(acc.closingCredit - acc.closingDebit))]);
     });
     rows.push(['', 'Итого капитал', formatCurrency(balanceSheet.equity.total)]);
@@ -192,7 +206,7 @@ export default function BalanceSheet() {
     );
   };
 
-  const renderSection = (section: { title: string; accounts: any[]; total: number }, isLiability = false) => (
+  const renderSection = (section: BalanceSheetSection, isLiability = false) => (
     <>
       <TableRow className="bg-muted/30">
         <TableCell colSpan={2} className="font-medium">{section.title}</TableCell>
@@ -212,6 +226,30 @@ export default function BalanceSheet() {
       </TableRow>
     </>
   );
+
+  const renderEquitySection = () => {
+    if (!balanceSheet) return null;
+    return (
+      <>
+        <TableRow className="bg-muted/30">
+          <TableCell colSpan={2} className="font-medium">Капитал</TableCell>
+        </TableRow>
+        {balanceSheet.equity.items.map((acc) => {
+          const balance = Math.abs(acc.closingCredit - acc.closingDebit);
+          return (
+            <TableRow key={acc.accountId}>
+              <TableCell className="pl-8">{acc.code} — {acc.name}</TableCell>
+              <TableCell className="text-right">{formatCurrency(balance)}</TableCell>
+            </TableRow>
+          );
+        })}
+        <TableRow className="bg-muted/20">
+          <TableCell className="pl-8 font-medium">Итого капитал</TableCell>
+          <TableCell className="text-right font-medium">{formatCurrency(balanceSheet.equity.total)}</TableCell>
+        </TableRow>
+      </>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -316,7 +354,7 @@ export default function BalanceSheet() {
                 <TableBody>
                   {renderSection(balanceSheet.currentLiabilities, true)}
                   {renderSection(balanceSheet.nonCurrentLiabilities, true)}
-                  {renderSection(balanceSheet.equity, true)}
+                  {renderEquitySection()}
                   <TableRow className="bg-primary/10 font-bold">
                     <TableCell>ИТОГО ПАССИВЫ</TableCell>
                     <TableCell className="text-right">{formatCurrency(balanceSheet.totalLiabilitiesAndEquity)}</TableCell>

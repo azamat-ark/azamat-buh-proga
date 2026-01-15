@@ -191,9 +191,13 @@ export default function SecurityChecklist() {
             Нажмите кнопку ниже для открытия настроек бэкенда, где можно управлять 
             аутентификацией, политиками безопасности и другими параметрами.
           </p>
-          <presentation-actions>
-            <presentation-open-backend>Открыть настройки бэкенда</presentation-open-backend>
-          </presentation-actions>
+          <Button variant="default">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Открыть настройки бэкенда
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Настройки бэкенда доступны через панель Lovable Cloud в правой части экрана.
+          </p>
         </CardContent>
       </Card>
     </DashboardLayout>
