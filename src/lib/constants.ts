@@ -17,6 +17,7 @@ export const TAX_REGIMES = {
 export const INVOICE_STATUSES = {
   draft: { label: 'Черновик', class: 'status-draft' },
   sent: { label: 'Отправлен', class: 'status-sent' },
+  partially_paid: { label: 'Частично оплачен', class: 'status-partial' },
   paid: { label: 'Оплачен', class: 'status-paid' },
   cancelled: { label: 'Отменён', class: 'status-cancelled' },
 } as const;

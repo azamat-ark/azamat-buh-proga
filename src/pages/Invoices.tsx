@@ -34,7 +34,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Search, Filter, Eye, Check, X } from 'lucide-react';
+import { Plus, FileText, Search, Filter, Eye, Check, X, Wallet } from 'lucide-react';
 import { formatCurrency, formatDate, INVOICE_STATUSES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
@@ -48,6 +48,8 @@ export default function Invoices() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -57,6 +59,14 @@ export default function Invoices() {
     counterparty_id: '',
     notes: '',
     lines: [{ item_name: '', quantity: '1', price: '' }],
+  });
+
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    account_id: '',
+    method: '',
+    note: '',
   });
 
   const { data: invoices = [] } = useQuery({
@@ -107,6 +117,21 @@ export default function Invoices() {
       if (!currentCompany) return [];
       const { data } = await supabase
         .from('items')
+        .select('*')
+        .eq('company_id', currentCompany.id)
+        .eq('is_active', true);
+      return data || [];
+    },
+    enabled: !!currentCompany,
+  });
+
+  // Fetch accounts for payment recording
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['accounts', currentCompany?.id],
+    queryFn: async () => {
+      if (!currentCompany) return [];
+      const { data } = await supabase
+        .from('accounts')
         .select('*')
         .eq('company_id', currentCompany.id)
         .eq('is_active', true);
@@ -246,6 +271,106 @@ export default function Invoices() {
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
     },
   });
+
+  // Record payment mutation
+  const recordPaymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentCompany || !user || !selectedInvoice) throw new Error('Данные не загружены');
+
+      const amountValidation = validatePositiveNumber(paymentData.amount);
+      if (!amountValidation.valid) {
+        throw new Error(amountValidation.error || 'Неверная сумма');
+      }
+
+      // Check amount doesn't exceed remaining
+      const remaining = Number(selectedInvoice.total) - Number(selectedInvoice.paid_amount || 0);
+      if (amountValidation.value > remaining) {
+        throw new Error(`Сумма превышает остаток к оплате (${formatCurrency(remaining)})`);
+      }
+
+      if (!paymentData.account_id) {
+        throw new Error('Выберите счёт');
+      }
+
+      // Create payment record
+      const { error: paymentError } = await supabase
+        .from('invoice_payments')
+        .insert({
+          company_id: currentCompany.id,
+          invoice_id: selectedInvoice.id,
+          account_id: paymentData.account_id,
+          amount: amountValidation.value,
+          date: paymentData.date,
+          method: paymentData.method || null,
+          note: paymentData.note || null,
+          created_by: user.id,
+        });
+
+      if (paymentError) throw paymentError;
+
+      // Also create a transaction for the payment
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          company_id: currentCompany.id,
+          type: 'income',
+          amount: amountValidation.value,
+          date: paymentData.date,
+          account_id: paymentData.account_id,
+          counterparty_id: selectedInvoice.counterparty_id,
+          description: `Оплата по счёту ${selectedInvoice.number}`,
+          invoice_id: selectedInvoice.id,
+          created_by: user.id,
+        });
+
+      if (txError) {
+        console.error('Error creating transaction for payment:', txError);
+        // Don't throw - payment is already recorded
+      }
+
+      // Update account balance directly 
+      const account = accounts.find((a: any) => a.id === paymentData.account_id);
+      if (account) {
+        await supabase
+          .from('accounts')
+          .update({ 
+            current_balance: Number(account.current_balance) + amountValidation.value
+          })
+          .eq('id', paymentData.account_id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setIsPaymentDialogOpen(false);
+      setSelectedInvoice(null);
+      setPaymentData({
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        account_id: '',
+        method: '',
+        note: '',
+      });
+      toast({ title: 'Оплата записана' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const openPaymentDialog = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    const remaining = Number(invoice.total) - Number(invoice.paid_amount || 0);
+    setPaymentData({
+      amount: String(remaining),
+      date: new Date().toISOString().split('T')[0],
+      account_id: '',
+      method: '',
+      note: '',
+    });
+    setIsPaymentDialogOpen(true);
+  };
 
   const addLine = () => {
     setFormData({
@@ -432,6 +557,7 @@ export default function Invoices() {
                 <SelectItem value="all">Все статусы</SelectItem>
                 <SelectItem value="draft">Черновик</SelectItem>
                 <SelectItem value="sent">Отправлен</SelectItem>
+                <SelectItem value="partially_paid">Частично оплачен</SelectItem>
                 <SelectItem value="paid">Оплачен</SelectItem>
                 <SelectItem value="cancelled">Отменён</SelectItem>
               </SelectContent>
@@ -466,12 +592,14 @@ export default function Invoices() {
                   <TableHead>Контрагент</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead className="text-right">Сумма</TableHead>
+                  <TableHead className="text-right">Оплачено</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((inv: any) => {
-                  const statusInfo = INVOICE_STATUSES[inv.status as keyof typeof INVOICE_STATUSES];
+                  const statusInfo = INVOICE_STATUSES[inv.status as keyof typeof INVOICE_STATUSES] || { label: inv.status, class: '' };
+                  const remaining = Number(inv.total) - Number(inv.paid_amount || 0);
                   return (
                     <TableRow key={inv.id} className="table-row-hover">
                       <TableCell className="font-medium">{inv.number}</TableCell>
@@ -485,6 +613,13 @@ export default function Invoices() {
                       <TableCell className="text-right font-medium">
                         {formatCurrency(Number(inv.total))}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {Number(inv.paid_amount || 0) > 0 ? (
+                          <span className="text-success">{formatCurrency(Number(inv.paid_amount))}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 justify-end">
                           {canEdit && inv.status === 'draft' && (
@@ -496,20 +631,15 @@ export default function Invoices() {
                               Отправить
                             </Button>
                           )}
-                          {canEdit && inv.status === 'sent' && (
+                          {canEdit && (inv.status === 'sent' || inv.status === 'partially_paid') && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-warning"
-                              onClick={() => {
-                                toast({
-                                  title: 'Запись оплаты',
-                                  description: 'Для отметки оплаты создайте операцию "Доход" и привяжите к счёту',
-                                });
-                              }}
+                              className="text-success"
+                              onClick={() => openPaymentDialog(inv)}
                             >
-                              <Check className="h-4 w-4 mr-1" />
-                              Записать оплату
+                              <Wallet className="h-4 w-4 mr-1" />
+                              Оплата
                             </Button>
                           )}
                         </div>
@@ -522,6 +652,110 @@ export default function Invoices() {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Записать оплату</DialogTitle>
+          </DialogHeader>
+          {selectedInvoice && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between mb-2">
+                  <span className="text-muted-foreground">Счёт:</span>
+                  <span className="font-medium">{selectedInvoice.number}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-muted-foreground">Сумма счёта:</span>
+                  <span>{formatCurrency(Number(selectedInvoice.total))}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-muted-foreground">Уже оплачено:</span>
+                  <span className="text-success">{formatCurrency(Number(selectedInvoice.paid_amount || 0))}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Остаток к оплате:</span>
+                  <span>{formatCurrency(Number(selectedInvoice.total) - Number(selectedInvoice.paid_amount || 0))}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="input-group">
+                  <Label>Сумма оплаты *</Label>
+                  <Input
+                    type="number"
+                    value={paymentData.amount}
+                    onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="input-group">
+                  <Label>Дата оплаты</Label>
+                  <Input
+                    type="date"
+                    value={paymentData.date}
+                    onChange={(e) => setPaymentData({ ...paymentData, date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <Label>Счёт (куда поступила оплата) *</Label>
+                <Select
+                  value={paymentData.account_id}
+                  onValueChange={(value) => setPaymentData({ ...paymentData, account_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите счёт" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((acc: any) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} ({formatCurrency(Number(acc.current_balance))})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="input-group">
+                <Label>Способ оплаты</Label>
+                <Select
+                  value={paymentData.method}
+                  onValueChange={(value) => setPaymentData({ ...paymentData, method: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите способ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank">Банковский перевод</SelectItem>
+                    <SelectItem value="cash">Наличные</SelectItem>
+                    <SelectItem value="card">Карта</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="input-group">
+                <Label>Примечание</Label>
+                <Input
+                  placeholder="Комментарий к оплате"
+                  value={paymentData.note}
+                  onChange={(e) => setPaymentData({ ...paymentData, note: e.target.value })}
+                />
+              </div>
+
+              <Button 
+                className="w-full" 
+                onClick={() => recordPaymentMutation.mutate()}
+                disabled={recordPaymentMutation.isPending}
+              >
+                Записать оплату
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

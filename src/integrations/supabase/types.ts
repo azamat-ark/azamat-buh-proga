@@ -731,6 +731,70 @@ export type Database = {
           },
         ]
       }
+      invoice_payments: {
+        Row: {
+          account_id: string | null
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          invoice_id: string
+          method: string | null
+          note: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          invoice_id: string
+          method?: string | null
+          note?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          invoice_id?: string
+          method?: string | null
+          note?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount_due: number | null
@@ -1577,7 +1641,7 @@ export type Database = {
       category_type: "income" | "expense"
       coa_standard: "nsfo" | "ifrs"
       employment_type: "full_time" | "contractor"
-      invoice_status: "draft" | "sent" | "paid" | "cancelled"
+      invoice_status: "draft" | "sent" | "partially_paid" | "paid" | "cancelled"
       journal_status: "draft" | "posted" | "reversed"
       period_status: "open" | "soft_closed" | "hard_closed"
       salary_type: "monthly" | "hourly"
@@ -1723,7 +1787,7 @@ export const Constants = {
       category_type: ["income", "expense"],
       coa_standard: ["nsfo", "ifrs"],
       employment_type: ["full_time", "contractor"],
-      invoice_status: ["draft", "sent", "paid", "cancelled"],
+      invoice_status: ["draft", "sent", "partially_paid", "paid", "cancelled"],
       journal_status: ["draft", "posted", "reversed"],
       period_status: ["open", "soft_closed", "hard_closed"],
       salary_type: ["monthly", "hourly"],

@@ -272,6 +272,10 @@
     @apply bg-destructive/15 text-destructive;
   }
 
+  .status-partial {
+    @apply bg-warning/15 text-warning;
+  }
+
   .amount-positive {
     @apply text-success font-semibold;
   }
