@@ -54,10 +54,28 @@ const financeNav = [{
   href: '/payroll',
   icon: Wallet,
   label: 'Зарплата'
-}, {
+}];
+
+const reportsNav = [{
   href: '/reports',
   icon: BarChart3,
-  label: 'Отчёты'
+  label: 'Все отчёты'
+}, {
+  href: '/reports/trial-balance',
+  icon: Calculator,
+  label: 'Оборотная ведомость'
+}, {
+  href: '/reports/balance-sheet',
+  icon: FileText,
+  label: 'Баланс'
+}, {
+  href: '/reports/profit-loss',
+  icon: BarChart3,
+  label: 'ОПУ'
+}, {
+  href: '/reports/vat',
+  icon: Calculator,
+  label: 'НДС отчёт'
 }];
 interface SidebarProps {
   className?: string;
@@ -166,7 +184,17 @@ export function Sidebar({
         </div>
 
         <div className="mt-6">
+          <p className="px-3 mb-2 text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider">
+            Отчёты
+          </p>
+          <div className="space-y-1">
+            {reportsNav.map(item => <NavLink key={item.href} {...item} />)}
+          </div>
+        </div>
+
+        <div className="mt-6">
           <NavLink href="/settings" icon={Settings} label="Настройки" />
+          <NavLink href="/security" icon={Settings} label="Безопасность" />
         </div>
       </nav>
 
