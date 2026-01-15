@@ -14,6 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_balances: {
+        Row: {
+          account_id: string
+          closing_credit: number | null
+          closing_debit: number | null
+          company_id: string
+          created_at: string | null
+          id: string
+          opening_credit: number | null
+          opening_debit: number | null
+          period_id: string
+          turnover_credit: number | null
+          turnover_debit: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          closing_credit?: number | null
+          closing_debit?: number | null
+          company_id: string
+          created_at?: string | null
+          id?: string
+          opening_credit?: number | null
+          opening_debit?: number | null
+          period_id: string
+          turnover_credit?: number | null
+          turnover_debit?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          closing_credit?: number | null
+          closing_debit?: number | null
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          opening_credit?: number | null
+          opening_debit?: number | null
+          period_id?: string
+          turnover_credit?: number | null
+          turnover_debit?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_balances_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_balances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_balances_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounting_periods: {
         Row: {
           closed_at: string | null
@@ -477,32 +544,54 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string | null
+          employment_type: Database["public"]["Enums"]["employment_type"] | null
           hire_date: string | null
+          hourly_rate: number | null
           id: string
+          iin: string | null
           is_active: boolean | null
+          is_tax_resident: boolean | null
           name: string
           position: string | null
           salary: number | null
+          salary_type: Database["public"]["Enums"]["salary_type"] | null
+          termination_date: string | null
         }
         Insert: {
           company_id: string
           created_at?: string | null
+          employment_type?:
+            | Database["public"]["Enums"]["employment_type"]
+            | null
           hire_date?: string | null
+          hourly_rate?: number | null
           id?: string
+          iin?: string | null
           is_active?: boolean | null
+          is_tax_resident?: boolean | null
           name: string
           position?: string | null
           salary?: number | null
+          salary_type?: Database["public"]["Enums"]["salary_type"] | null
+          termination_date?: string | null
         }
         Update: {
           company_id?: string
           created_at?: string | null
+          employment_type?:
+            | Database["public"]["Enums"]["employment_type"]
+            | null
           hire_date?: string | null
+          hourly_rate?: number | null
           id?: string
+          iin?: string | null
           is_active?: boolean | null
+          is_tax_resident?: boolean | null
           name?: string
           position?: string | null
           salary?: number | null
+          salary_type?: Database["public"]["Enums"]["salary_type"] | null
+          termination_date?: string | null
         }
         Relationships: [
           {
@@ -560,6 +649,7 @@ export type Database = {
       }
       invoice_lines: {
         Row: {
+          base_amount: number | null
           description: string | null
           id: string
           invoice_id: string
@@ -568,8 +658,11 @@ export type Database = {
           line_total: number | null
           price: number | null
           quantity: number | null
+          vat_amount: number | null
+          vat_rate: Database["public"]["Enums"]["vat_rate"] | null
         }
         Insert: {
+          base_amount?: number | null
           description?: string | null
           id?: string
           invoice_id: string
@@ -578,8 +671,11 @@ export type Database = {
           line_total?: number | null
           price?: number | null
           quantity?: number | null
+          vat_amount?: number | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Update: {
+          base_amount?: number | null
           description?: string | null
           id?: string
           invoice_id?: string
@@ -588,6 +684,8 @@ export type Database = {
           line_total?: number | null
           price?: number | null
           quantity?: number | null
+          vat_amount?: number | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Relationships: [
           {
@@ -618,11 +716,13 @@ export type Database = {
           id: string
           notes: string | null
           number: string
+          paid_amount: number | null
           status: Database["public"]["Enums"]["invoice_status"]
           subtotal: number | null
           tax_amount: number | null
           total: number | null
           updated_at: string | null
+          vat_rate: Database["public"]["Enums"]["vat_rate"] | null
         }
         Insert: {
           company_id: string
@@ -635,11 +735,13 @@ export type Database = {
           id?: string
           notes?: string | null
           number: string
+          paid_amount?: number | null
           status?: Database["public"]["Enums"]["invoice_status"]
           subtotal?: number | null
           tax_amount?: number | null
           total?: number | null
           updated_at?: string | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Update: {
           company_id?: string
@@ -652,11 +754,13 @@ export type Database = {
           id?: string
           notes?: string | null
           number?: string
+          paid_amount?: number | null
           status?: Database["public"]["Enums"]["invoice_status"]
           subtotal?: number | null
           tax_amount?: number | null
           total?: number | null
           updated_at?: string | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Relationships: [
           {
@@ -994,11 +1098,21 @@ export type Database = {
           created_at: string | null
           date_paid: string | null
           employee_id: string
+          gross_salary: number | null
           id: string
+          ipn: number | null
+          journal_entry_id: string | null
           note: string | null
+          opv: number | null
           paid: number | null
           period: string
           period_id: string | null
+          social_contributions: number | null
+          social_tax: number | null
+          vosms_employee: number | null
+          vosms_employer: number | null
+          worked_days: number | null
+          worked_hours: number | null
         }
         Insert: {
           accrued?: number | null
@@ -1007,11 +1121,21 @@ export type Database = {
           created_at?: string | null
           date_paid?: string | null
           employee_id: string
+          gross_salary?: number | null
           id?: string
+          ipn?: number | null
+          journal_entry_id?: string | null
           note?: string | null
+          opv?: number | null
           paid?: number | null
           period: string
           period_id?: string | null
+          social_contributions?: number | null
+          social_tax?: number | null
+          vosms_employee?: number | null
+          vosms_employer?: number | null
+          worked_days?: number | null
+          worked_hours?: number | null
         }
         Update: {
           accrued?: number | null
@@ -1020,11 +1144,21 @@ export type Database = {
           created_at?: string | null
           date_paid?: string | null
           employee_id?: string
+          gross_salary?: number | null
           id?: string
+          ipn?: number | null
+          journal_entry_id?: string | null
           note?: string | null
+          opv?: number | null
           paid?: number | null
           period?: string
           period_id?: string | null
+          social_contributions?: number | null
+          social_tax?: number | null
+          vosms_employee?: number | null
+          vosms_employer?: number | null
+          worked_days?: number | null
+          worked_hours?: number | null
         }
         Relationships: [
           {
@@ -1039,6 +1173,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_entries_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
           {
@@ -1095,6 +1236,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          base_amount: number | null
           category_id: string | null
           company_id: string
           counterparty_id: string | null
@@ -1105,10 +1247,13 @@ export type Database = {
           id: string
           to_account_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
+          vat_amount: number | null
+          vat_rate: Database["public"]["Enums"]["vat_rate"] | null
         }
         Insert: {
           account_id?: string | null
           amount: number
+          base_amount?: number | null
           category_id?: string | null
           company_id: string
           counterparty_id?: string | null
@@ -1119,10 +1264,13 @@ export type Database = {
           id?: string
           to_account_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
+          vat_amount?: number | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Update: {
           account_id?: string | null
           amount?: number
+          base_amount?: number | null
           category_id?: string | null
           company_id?: string
           counterparty_id?: string | null
@@ -1133,6 +1281,8 @@ export type Database = {
           id?: string
           to_account_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
+          vat_amount?: number | null
+          vat_rate?: Database["public"]["Enums"]["vat_rate"] | null
         }
         Relationships: [
           {
@@ -1242,11 +1392,14 @@ export type Database = {
       app_role: "owner" | "accountant" | "viewer" | "employee"
       category_type: "income" | "expense"
       coa_standard: "nsfo" | "ifrs"
+      employment_type: "full_time" | "contractor"
       invoice_status: "draft" | "sent" | "paid" | "cancelled"
       journal_status: "draft" | "posted" | "reversed"
       period_status: "open" | "soft_closed" | "hard_closed"
+      salary_type: "monthly" | "hourly"
       tax_regime: "simplified" | "common" | "retail_tax"
       transaction_type: "income" | "expense" | "transfer"
+      vat_rate: "0" | "5" | "12" | "exempt"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1385,11 +1538,14 @@ export const Constants = {
       app_role: ["owner", "accountant", "viewer", "employee"],
       category_type: ["income", "expense"],
       coa_standard: ["nsfo", "ifrs"],
+      employment_type: ["full_time", "contractor"],
       invoice_status: ["draft", "sent", "paid", "cancelled"],
       journal_status: ["draft", "posted", "reversed"],
       period_status: ["open", "soft_closed", "hard_closed"],
+      salary_type: ["monthly", "hourly"],
       tax_regime: ["simplified", "common", "retail_tax"],
       transaction_type: ["income", "expense", "transfer"],
+      vat_rate: ["0", "5", "12", "exempt"],
     },
   },
 } as const
