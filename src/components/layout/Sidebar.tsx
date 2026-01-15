@@ -2,104 +2,111 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompany } from '@/hooks/useCompany';
-import {
-  LayoutDashboard,
-  ArrowRightLeft,
-  FileText,
-  Users,
-  Package,
-  FolderOpen,
-  Wallet,
-  BarChart3,
-  Settings,
-  LogOut,
-  Building2,
-  Calculator,
-  ChevronDown,
-  CreditCard,
-  UserCircle,
-} from 'lucide-react';
+import { LayoutDashboard, ArrowRightLeft, FileText, Users, Package, FolderOpen, Wallet, BarChart3, Settings, LogOut, Building2, Calculator, ChevronDown, CreditCard, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ROLES } from '@/lib/constants';
-
-const mainNav = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Дашборд' },
-  { href: '/transactions', icon: ArrowRightLeft, label: 'Операции' },
-  { href: '/invoices', icon: FileText, label: 'Документы' },
-];
-
-const accountingNav = [
-  { href: '/chart-of-accounts', icon: FolderOpen, label: 'План счетов' },
-  { href: '/journal', icon: FileText, label: 'Журнал проводок' },
-  { href: '/periods', icon: Calculator, label: 'Периоды' },
-];
-
-const directoryNav = [
-  { href: '/counterparties', icon: Users, label: 'Контрагенты' },
-  { href: '/items', icon: Package, label: 'Товары/услуги' },
-  { href: '/categories', icon: FolderOpen, label: 'Категории' },
-  { href: '/accounts', icon: CreditCard, label: 'Счета/кассы' },
-];
-
-const financeNav = [
-  { href: '/payroll', icon: Wallet, label: 'Зарплата' },
-  { href: '/reports', icon: BarChart3, label: 'Отчёты' },
-];
-
+const mainNav = [{
+  href: '/dashboard',
+  icon: LayoutDashboard,
+  label: 'Дашборд'
+}, {
+  href: '/transactions',
+  icon: ArrowRightLeft,
+  label: 'Операции'
+}, {
+  href: '/invoices',
+  icon: FileText,
+  label: 'Документы'
+}];
+const accountingNav = [{
+  href: '/chart-of-accounts',
+  icon: FolderOpen,
+  label: 'План счетов'
+}, {
+  href: '/journal',
+  icon: FileText,
+  label: 'Журнал проводок'
+}, {
+  href: '/periods',
+  icon: Calculator,
+  label: 'Периоды'
+}];
+const directoryNav = [{
+  href: '/counterparties',
+  icon: Users,
+  label: 'Контрагенты'
+}, {
+  href: '/items',
+  icon: Package,
+  label: 'Товары/услуги'
+}, {
+  href: '/categories',
+  icon: FolderOpen,
+  label: 'Категории'
+}, {
+  href: '/accounts',
+  icon: CreditCard,
+  label: 'Счета/кассы'
+}];
+const financeNav = [{
+  href: '/payroll',
+  icon: Wallet,
+  label: 'Зарплата'
+}, {
+  href: '/reports',
+  icon: BarChart3,
+  label: 'Отчёты'
+}];
 interface SidebarProps {
   className?: string;
 }
-
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({
+  className
+}: SidebarProps) {
   const location = useLocation();
-  const { user, signOut } = useAuth();
-  const { currentCompany, companies, setCurrentCompany, userRole } = useCompany();
-
-  const NavLink = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
+  const {
+    user,
+    signOut
+  } = useAuth();
+  const {
+    currentCompany,
+    companies,
+    setCurrentCompany,
+    userRole
+  } = useCompany();
+  const NavLink = ({
+    href,
+    icon: Icon,
+    label
+  }: {
+    href: string;
+    icon: any;
+    label: string;
+  }) => {
     const isActive = location.pathname === href;
-    return (
-      <Link
-        to={href}
-        className={cn(
-          'sidebar-item',
-          isActive && 'sidebar-item-active'
-        )}
-      >
+    return <Link to={href} className={cn('sidebar-item', isActive && 'sidebar-item-active')}>
         <Icon className="h-5 w-5" />
         <span>{label}</span>
-      </Link>
-    );
+      </Link>;
   };
-
   const userInitials = user?.email?.slice(0, 2).toUpperCase() || 'U';
   const roleInfo = userRole ? ROLES[userRole] : null;
-
-  return (
-    <aside className={cn('flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border', className)}>
+  return <aside className={cn('flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border', className)}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 px-4 border-b border-sidebar-border">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
           <Calculator className="h-5 w-5 text-primary-foreground" />
         </div>
-        <span className="text-lg font-bold text-sidebar-foreground">БухОнлайн</span>
+        <span className="text-lg font-bold text-sidebar-foreground">Азамат Accounting</span>
       </div>
 
       {/* Company Selector */}
       <div className="p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
+            <Button variant="ghost" className="w-full justify-between text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <div className="flex items-center gap-2 truncate">
                 <Building2 className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">{currentCompany?.name || 'Выберите организацию'}</span>
@@ -108,16 +115,10 @@ export function Sidebar({ className }: SidebarProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            {companies.map((company) => (
-              <DropdownMenuItem
-                key={company.id}
-                onClick={() => setCurrentCompany(company)}
-                className={cn(currentCompany?.id === company.id && 'bg-accent')}
-              >
+            {companies.map(company => <DropdownMenuItem key={company.id} onClick={() => setCurrentCompany(company)} className={cn(currentCompany?.id === company.id && 'bg-accent')}>
                 <Building2 className="mr-2 h-4 w-4" />
                 {company.name}
-              </DropdownMenuItem>
-            ))}
+              </DropdownMenuItem>)}
             {companies.length > 0 && <DropdownMenuSeparator />}
             <DropdownMenuItem asChild>
               <Link to="/onboarding">
@@ -126,19 +127,15 @@ export function Sidebar({ className }: SidebarProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {roleInfo && (
-          <div className={cn('mt-2 px-3 py-1 rounded-md text-xs font-medium text-center', roleInfo.color, 'text-primary-foreground')}>
+        {roleInfo && <div className={cn('mt-2 px-3 py-1 rounded-md text-xs font-medium text-center', roleInfo.color, 'text-primary-foreground')}>
             {roleInfo.label}
-          </div>
-        )}
+          </div>}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-1">
-          {mainNav.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
+          {mainNav.map(item => <NavLink key={item.href} {...item} />)}
         </div>
 
         <div className="mt-6">
@@ -146,9 +143,7 @@ export function Sidebar({ className }: SidebarProps) {
             Учёт
           </p>
           <div className="space-y-1">
-            {accountingNav.map((item) => (
-              <NavLink key={item.href} {...item} />
-            ))}
+            {accountingNav.map(item => <NavLink key={item.href} {...item} />)}
           </div>
         </div>
 
@@ -157,9 +152,7 @@ export function Sidebar({ className }: SidebarProps) {
             Справочники
           </p>
           <div className="space-y-1">
-            {directoryNav.map((item) => (
-              <NavLink key={item.href} {...item} />
-            ))}
+            {directoryNav.map(item => <NavLink key={item.href} {...item} />)}
           </div>
         </div>
 
@@ -168,9 +161,7 @@ export function Sidebar({ className }: SidebarProps) {
             Финансы
           </p>
           <div className="space-y-1">
-            {financeNav.map((item) => (
-              <NavLink key={item.href} {...item} />
-            ))}
+            {financeNav.map(item => <NavLink key={item.href} {...item} />)}
           </div>
         </div>
 
@@ -183,10 +174,7 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="border-t border-sidebar-border p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
+            <Button variant="ghost" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs">
                   {userInitials}
@@ -212,6 +200,5 @@ export function Sidebar({ className }: SidebarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </aside>
-  );
+    </aside>;
 }
