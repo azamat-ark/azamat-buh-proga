@@ -25,6 +25,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Package, Search } from 'lucide-react';
 import { formatCurrency } from '@/lib/constants';
+import { validateNonNegativeNumber } from '@/lib/validation-schemas';
 
 export default function Items() {
   const { currentCompany, canEdit } = useCompany();
@@ -59,12 +60,23 @@ export default function Items() {
     mutationFn: async () => {
       if (!currentCompany) throw new Error('No company');
 
+      // Validate name
+      if (!formData.name.trim()) {
+        throw new Error('Введите название');
+      }
+
+      // Validate price
+      const priceValidation = validateNonNegativeNumber(formData.price_default);
+      if (!priceValidation.valid) {
+        throw new Error(priceValidation.error || 'Неверная цена');
+      }
+
       const { error } = await supabase.from('items').insert({
         company_id: currentCompany.id,
-        name: formData.name,
-        description: formData.description || null,
-        unit: formData.unit || 'шт',
-        price_default: parseFloat(formData.price_default) || 0,
+        name: formData.name.slice(0, 200),
+        description: formData.description?.slice(0, 500) || null,
+        unit: formData.unit?.slice(0, 20) || 'шт',
+        price_default: priceValidation.value,
       });
 
       if (error) throw error;

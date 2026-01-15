@@ -38,6 +38,7 @@ import { Plus, FileText, Search, Filter, Eye, Check, X } from 'lucide-react';
 import { formatCurrency, formatDate, INVOICE_STATUSES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
+import { validatePositiveNumber, validateNonNegativeNumber } from '@/lib/validation-schemas';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -114,9 +115,38 @@ export default function Invoices() {
     mutationFn: async () => {
       if (!currentCompany || !user) throw new Error('No company or user');
 
-      // Calculate totals
-      const lines = formData.lines.filter(l => l.item_name && l.price);
-      const subtotal = lines.reduce((sum, l) => sum + (parseFloat(l.quantity) * parseFloat(l.price)), 0);
+      // Validate and filter lines
+      const validatedLines: Array<{ item_name: string; quantity: number; price: number }> = [];
+      
+      for (const line of formData.lines) {
+        if (!line.item_name.trim() && !line.price) continue;
+        
+        if (!line.item_name.trim()) {
+          throw new Error('Укажите название для всех позиций');
+        }
+        
+        const qtyValidation = validatePositiveNumber(line.quantity, 1000000);
+        if (!qtyValidation.valid) {
+          throw new Error(`Неверное количество для "${line.item_name}": ${qtyValidation.error}`);
+        }
+        
+        const priceValidation = validateNonNegativeNumber(line.price);
+        if (!priceValidation.valid) {
+          throw new Error(`Неверная цена для "${line.item_name}": ${priceValidation.error}`);
+        }
+        
+        validatedLines.push({
+          item_name: line.item_name.slice(0, 200),
+          quantity: qtyValidation.value,
+          price: priceValidation.value,
+        });
+      }
+
+      if (validatedLines.length === 0) {
+        throw new Error('Добавьте минимум одну позицию');
+      }
+
+      const subtotal = validatedLines.reduce((sum, l) => sum + (l.quantity * l.price), 0);
 
       // Get next invoice number
       const { data: company } = await supabase
@@ -139,7 +169,7 @@ export default function Invoices() {
           status: 'draft',
           subtotal,
           total: subtotal,
-          notes: formData.notes || null,
+          notes: formData.notes?.slice(0, 1000) || null,
           created_by: user.id,
         })
         .select()
@@ -148,21 +178,19 @@ export default function Invoices() {
       if (invoiceError) throw invoiceError;
 
       // Create invoice lines
-      if (lines.length > 0) {
-        const { error: linesError } = await supabase
-          .from('invoice_lines')
-          .insert(
-            lines.map(l => ({
-              invoice_id: invoice.id,
-              item_name: l.item_name,
-              quantity: parseFloat(l.quantity),
-              price: parseFloat(l.price),
-              line_total: parseFloat(l.quantity) * parseFloat(l.price),
-            }))
-          );
+      const { error: linesError } = await supabase
+        .from('invoice_lines')
+        .insert(
+          validatedLines.map(l => ({
+            invoice_id: invoice.id,
+            item_name: l.item_name,
+            quantity: l.quantity,
+            price: l.price,
+            line_total: l.quantity * l.price,
+          }))
+        );
 
-        if (linesError) throw linesError;
-      }
+      if (linesError) throw linesError;
 
       // Update next invoice number
       await supabase
