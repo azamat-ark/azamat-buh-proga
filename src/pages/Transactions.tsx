@@ -72,7 +72,7 @@ export default function Transactions() {
           *,
           category:categories(name, color),
           counterparty:counterparties(name),
-          account:accounts(name),
+          account:accounts!transactions_account_id_fkey(name),
           to_account:accounts!transactions_to_account_id_fkey(name)
         `)
         .eq('company_id', currentCompany.id)
@@ -83,7 +83,11 @@ export default function Transactions() {
         query = query.eq('type', typeFilter as TransactionType);
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching transactions:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany,
