@@ -56,18 +56,22 @@ export default function Reports() {
     queryKey: ['report-transactions', currentCompany?.id, dateFrom, dateTo],
     queryFn: async () => {
       if (!currentCompany) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
           category:categories(id, name, color, type),
           counterparty:counterparties(id, name),
-          account:accounts(id, name)
+          account:accounts!transactions_account_id_fkey(id, name)
         `)
         .eq('company_id', currentCompany.id)
         .gte('date', dateFrom)
         .lte('date', dateTo)
         .order('date', { ascending: true });
+      if (error) {
+        console.error('Error fetching report transactions:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany,

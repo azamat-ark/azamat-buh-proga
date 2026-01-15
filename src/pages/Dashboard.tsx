@@ -73,19 +73,23 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!currentCompany) return [];
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
           category:categories(name),
           counterparty:counterparties(name),
-          account:accounts(name)
+          account:accounts!transactions_account_id_fkey(name)
         `)
         .eq('company_id', currentCompany.id)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(5);
 
+      if (error) {
+        console.error('Error fetching recent transactions:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany,

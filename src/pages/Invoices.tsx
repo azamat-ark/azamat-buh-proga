@@ -67,7 +67,7 @@ export default function Invoices() {
         .from('invoices')
         .select(`
           *,
-          counterparty:counterparties(name)
+          counterparty:counterparties!invoices_counterparty_id_fkey(name)
         `)
         .eq('company_id', currentCompany.id)
         .order('date', { ascending: false });
@@ -76,7 +76,11 @@ export default function Invoices() {
         query = query.eq('status', statusFilter as InvoiceStatus);
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        throw error;
+      }
       return data || [];
     },
     enabled: !!currentCompany,
