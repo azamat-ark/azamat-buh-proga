@@ -26,6 +26,7 @@ import { Plus, CreditCard, Banknote, Building2 } from 'lucide-react';
 import { formatCurrency, ACCOUNT_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
+import { validateNonNegativeNumber } from '@/lib/validation-schemas';
 
 type AccountType = Database['public']['Enums']['account_type'];
 
@@ -59,14 +60,24 @@ export default function Accounts() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!currentCompany) throw new Error('No company');
-      const balance = parseFloat(formData.opening_balance) || 0;
+      
+      // Validate name
+      if (!formData.name.trim()) {
+        throw new Error('Введите название счёта');
+      }
+      
+      // Validate opening balance
+      const balanceValidation = validateNonNegativeNumber(formData.opening_balance);
+      if (!balanceValidation.valid) {
+        throw new Error(balanceValidation.error || 'Неверный начальный остаток');
+      }
 
       const { error } = await supabase.from('accounts').insert({
         company_id: currentCompany.id,
-        name: formData.name,
+        name: formData.name.slice(0, 100),
         type: formData.type,
-        opening_balance: balance,
-        current_balance: balance,
+        opening_balance: balanceValidation.value,
+        current_balance: balanceValidation.value,
       });
 
       if (error) throw error;

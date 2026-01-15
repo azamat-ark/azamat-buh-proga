@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { ImportCSVDialog } from '@/components/transactions/ImportCSVDialog';
 import { ExportButtons } from '@/components/transactions/ExportButtons';
 import { Database } from '@/integrations/supabase/types';
+import { validatePositiveNumber } from '@/lib/validation-schemas';
 
 type TransactionType = Database['public']['Enums']['transaction_type'];
 
@@ -134,16 +135,22 @@ export default function Transactions() {
     mutationFn: async () => {
       if (!currentCompany || !user) throw new Error('No company or user');
 
+      // Validate amount
+      const amountValidation = validatePositiveNumber(formData.amount);
+      if (!amountValidation.valid) {
+        throw new Error(amountValidation.error || 'Неверная сумма');
+      }
+
       const { error } = await supabase.from('transactions').insert({
         company_id: currentCompany.id,
         date: formData.date,
         type: formData.type,
-        amount: parseFloat(formData.amount),
+        amount: amountValidation.value,
         account_id: formData.account_id || null,
         to_account_id: formData.type === 'transfer' ? formData.to_account_id || null : null,
         category_id: formData.type !== 'transfer' ? formData.category_id || null : null,
         counterparty_id: formData.counterparty_id || null,
-        description: formData.description || null,
+        description: formData.description?.slice(0, 500) || null,
         created_by: user.id,
       });
 
