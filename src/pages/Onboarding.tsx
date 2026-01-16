@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Calculator, Building2, Loader2, Sparkles } from 'lucide-react';
+import { Calculator, Building2, Loader2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { initializeCompanyData } from '@/lib/company-initialization';
 
 const companySchema = z.object({
   name: z.string()
@@ -35,6 +36,10 @@ export default function Onboarding() {
   const { createCompany, refetchCompanies } = useCompany();
   const [isCreating, setIsCreating] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [initializationStatus, setInitializationStatus] = useState<{
+    step: 'idle' | 'creating' | 'initializing' | 'complete';
+    progress: string[];
+  }>({ step: 'idle', progress: [] });
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -43,18 +48,61 @@ export default function Onboarding() {
 
   const handleSubmit = async (data: CompanyFormData) => {
     setIsCreating(true);
+    setInitializationStatus({ step: 'creating', progress: ['Создание организации...'] });
+    
     try {
       const company = await createCompany({
         name: data.name,
         bin_iin: data.bin_iin || null,
       });
 
+      setInitializationStatus(prev => ({ 
+        ...prev, 
+        step: 'initializing',
+        progress: [...prev.progress, '✓ Организация создана', 'Настройка плана счетов...'] 
+      }));
+
+      // Initialize company with essential data
+      const result = await initializeCompanyData(company.id);
+
+      const progressMessages = [];
+      if (result.chartOfAccountsCount > 0) {
+        progressMessages.push(`✓ План счетов: ${result.chartOfAccountsCount} счетов`);
+      }
+      if (result.periodsCount > 0) {
+        progressMessages.push(`✓ Учётные периоды: ${result.periodsCount} месяцев`);
+      }
+      if (result.taxSettingsCreated) {
+        progressMessages.push('✓ Налоговые ставки настроены');
+      }
+      if (result.payrollMappingsCount > 0) {
+        progressMessages.push(`✓ Привязка счетов: ${result.payrollMappingsCount} проводок`);
+      }
+
+      setInitializationStatus(prev => ({
+        step: 'complete',
+        progress: [...prev.progress.filter(p => !p.startsWith('Настройка')), ...progressMessages]
+      }));
+
       // Refresh companies list and set the new company as current
       await refetchCompanies();
       setCompanyId(company.id);
-      toast({ title: 'Организация создана', description: 'Теперь вы можете начать работу' });
+
+      if (result.errors.length > 0) {
+        toast({ 
+          title: 'Организация создана', 
+          description: `Некоторые настройки не применены: ${result.errors.join(', ')}`,
+          variant: 'default'
+        });
+      } else {
+        toast({ 
+          title: 'Организация создана', 
+          description: 'Все настройки успешно применены' 
+        });
+      }
     } catch (error: any) {
       toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      setInitializationStatus({ step: 'idle', progress: [] });
     } finally {
       setIsCreating(false);
     }
@@ -64,7 +112,7 @@ export default function Onboarding() {
     mutationFn: async () => {
       if (!companyId) throw new Error('No company');
 
-      // Create demo accounts
+      // Create demo accounts (these are cash/bank accounts for daily operations)
       const { data: accounts } = await supabase
         .from('accounts')
         .insert([
@@ -208,10 +256,28 @@ export default function Onboarding() {
             </div>
             <CardTitle className="text-2xl">Организация создана!</CardTitle>
             <CardDescription>
-              Хотите добавить демо-данные для ознакомления с системой?
+              Система полностью настроена и готова к работе.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Show initialization progress */}
+            {initializationStatus.progress.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                {initializationStatus.progress.map((msg, i) => (
+                  <div key={i} className="text-sm flex items-center gap-2">
+                    {msg.startsWith('✓') ? (
+                      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                    ) : (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+                    )}
+                    <span className={msg.startsWith('✓') ? 'text-foreground' : 'text-muted-foreground'}>
+                      {msg.replace('✓ ', '')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <Button
               onClick={() => fillDemoData.mutate()}
               disabled={fillDemoData.isPending}
@@ -223,13 +289,13 @@ export default function Onboarding() {
               ) : (
                 <Sparkles className="mr-2 h-4 w-4" />
               )}
-              Заполнить демо-данными
+              Добавить демо-данные
             </Button>
             <Button
               onClick={() => navigate('/dashboard')}
               className="w-full"
             >
-              Начать с чистого листа
+              Начать работу
             </Button>
           </CardContent>
         </Card>
@@ -248,7 +314,7 @@ export default function Onboarding() {
           </div>
           <CardTitle className="text-2xl">Создание организации</CardTitle>
           <CardDescription>
-            Для начала работы создайте вашу первую организацию
+            Система автоматически настроит план счетов по НСФО, учётные периоды и налоговые ставки
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -259,6 +325,7 @@ export default function Onboarding() {
                 id="name"
                 placeholder="ТОО 'Моя компания'"
                 {...form.register('name')}
+                disabled={isCreating}
               />
               {form.formState.errors.name && (
                 <p className="text-sm text-destructive">
@@ -272,11 +339,31 @@ export default function Onboarding() {
                 id="bin_iin"
                 placeholder="123456789012"
                 {...form.register('bin_iin')}
+                disabled={isCreating}
               />
             </div>
+
+            {/* Show initialization progress during creation */}
+            {initializationStatus.step !== 'idle' && initializationStatus.progress.length > 0 && (
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                {initializationStatus.progress.map((msg, i) => (
+                  <div key={i} className="text-sm flex items-center gap-2">
+                    {msg.startsWith('✓') ? (
+                      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                    ) : (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+                    )}
+                    <span className={msg.startsWith('✓') ? 'text-foreground' : 'text-muted-foreground'}>
+                      {msg.replace('✓ ', '')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={isCreating}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Создать организацию
+              {isCreating ? 'Настройка...' : 'Создать организацию'}
             </Button>
           </form>
         </CardContent>
