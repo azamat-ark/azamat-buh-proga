@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeDbError, logError } from '@/lib/error-utils';
 import { useCompany } from '@/hooks/useCompany';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -178,7 +179,8 @@ export default function Transactions() {
       toast({ title: 'Операция добавлена' });
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      logError('createTransaction', error);
+      toast({ title: 'Ошибка', description: sanitizeDbError(error), variant: 'destructive' });
     },
   });
 

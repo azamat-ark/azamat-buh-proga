@@ -39,6 +39,7 @@ import { formatCurrency, formatDate, INVOICE_STATUSES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
 import { validatePositiveNumber, validateNonNegativeNumber } from '@/lib/validation-schemas';
+import { sanitizeDbError, logError } from '@/lib/error-utils';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -250,7 +251,8 @@ export default function Invoices() {
       toast({ title: 'Счёт создан' });
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      logError('createInvoice', error);
+      toast({ title: 'Ошибка', description: sanitizeDbError(error), variant: 'destructive' });
     },
   });
 
@@ -268,7 +270,8 @@ export default function Invoices() {
       toast({ title: 'Статус обновлён' });
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      logError('updateInvoiceStatus', error);
+      toast({ title: 'Ошибка', description: sanitizeDbError(error), variant: 'destructive' });
     },
   });
 
