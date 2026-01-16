@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CompanyProvider } from "@/hooks/useCompany";
@@ -41,30 +41,32 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/counterparties" element={<Counterparties />} />
-              <Route path="/accounts" element={<Accounts />} />
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/items" element={<Items />} />
-              <Route path="/invoices" element={<Invoices />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/payroll" element={<Payroll />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
-              <Route path="/journal" element={<JournalEntries />} />
-              <Route path="/periods" element={<AccountingPeriods />} />
-              <Route path="/reports/trial-balance" element={<TrialBalance />} />
-              <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
-              <Route path="/reports/profit-loss" element={<ProfitLoss />} />
-              <Route path="/reports/vat" element={<VATReport />} />
-              <Route path="/security" element={<SecurityChecklist />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/transactions/new" element={<Navigate to="/transactions?add=true" replace />} />
+                <Route path="/counterparties" element={<Counterparties />} />
+                <Route path="/accounts" element={<Accounts />} />
+                <Route path="/categories" element={<Categories />} />
+                <Route path="/items" element={<Items />} />
+                <Route path="/invoices" element={<Invoices />} />
+                <Route path="/invoices/new" element={<Navigate to="/invoices?add=true" replace />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/payroll" element={<Payroll />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/chart-of-accounts" element={<ChartOfAccounts />} />
+                <Route path="/journal" element={<JournalEntries />} />
+                <Route path="/periods" element={<AccountingPeriods />} />
+                <Route path="/reports/trial-balance" element={<TrialBalance />} />
+                <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
+                <Route path="/reports/profit-loss" element={<ProfitLoss />} />
+                <Route path="/reports/vat" element={<VATReport />} />
+                <Route path="/security" element={<SecurityChecklist />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </BrowserRouter>
           </TooltipProvider>
         </CompanyProvider>
