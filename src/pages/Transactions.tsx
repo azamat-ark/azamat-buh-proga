@@ -59,8 +59,11 @@ export default function Transactions() {
     if (searchParams.get('add') === 'true' && canEdit) {
       setIsDialogOpen(true);
       // Remove the query param after opening
-      searchParams.delete('add');
-      setSearchParams(searchParams, { replace: true });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('add');
+        return next;
+      }, { replace: true });
     }
   }, [searchParams, canEdit, setSearchParams]);
 
