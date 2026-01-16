@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeDbError, logError } from '@/lib/error-utils';
@@ -48,9 +49,20 @@ export default function Transactions() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  // Open dialog when ?add=true is present
+  useEffect(() => {
+    if (searchParams.get('add') === 'true' && canEdit) {
+      setIsDialogOpen(true);
+      // Remove the query param after opening
+      searchParams.delete('add');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, canEdit, setSearchParams]);
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
