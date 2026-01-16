@@ -4,7 +4,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/hooks/useCompany';
 import { useAuth } from '@/hooks/useAuth';
+import { usePeriodValidation } from '@/hooks/usePeriodValidation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PeriodValidationAlert } from '@/components/period/PeriodValidationAlert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +36,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, FileText, Search, Filter, Eye, Check, X, Wallet } from 'lucide-react';
+import { Plus, FileText, Search, Filter, Eye, Check, X, Wallet, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate, INVOICE_STATUSES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
@@ -70,6 +72,9 @@ export default function Invoices() {
     notes: '',
     lines: [{ item_name: '', quantity: '1', price: '' }],
   });
+
+  // Period validation based on selected date
+  const periodValidation = usePeriodValidation(formData.date);
 
   const [paymentData, setPaymentData] = useState({
     amount: '',
@@ -154,6 +159,13 @@ export default function Invoices() {
     mutationFn: async () => {
       if (!currentCompany || !user) throw new Error('No company or user');
 
+      // Validate period first
+      if (!periodValidation.isValid) {
+        throw new Error(periodValidation.error || 'Период не найден для выбранной даты');
+      }
+      if (!periodValidation.canWrite) {
+        throw new Error(periodValidation.error || 'Период закрыт для изменений');
+      }
       // Validate and filter lines
       const validatedLines: Array<{ item_name: string; quantity: number; price: number }> = [];
       

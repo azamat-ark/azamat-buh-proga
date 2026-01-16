@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeDbError, logError } from '@/lib/error-utils';
 import { useCompany } from '@/hooks/useCompany';
 import { useAuth } from '@/hooks/useAuth';
+import { usePeriodValidation } from '@/hooks/usePeriodValidation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PeriodValidationAlert } from '@/components/period/PeriodValidationAlert';
+import { PeriodStatusBadge } from '@/components/period/PeriodStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +37,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, ArrowRightLeft, TrendingUp, TrendingDown, Search, Filter } from 'lucide-react';
+import { Plus, ArrowRightLeft, TrendingUp, TrendingDown, Search, Filter, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate, TRANSACTION_TYPES, CATEGORY_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { ImportCSVDialog } from '@/components/transactions/ImportCSVDialog';
@@ -77,6 +80,9 @@ export default function Transactions() {
     counterparty_id: '',
     description: '',
   });
+
+  // Period validation based on selected date
+  const periodValidation = usePeriodValidation(formData.date);
 
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions', currentCompany?.id, typeFilter],
@@ -155,6 +161,14 @@ export default function Transactions() {
     mutationFn: async () => {
       if (!currentCompany || !user) throw new Error('No company or user');
 
+      // Validate period first
+      if (!periodValidation.isValid) {
+        throw new Error(periodValidation.error || 'Период не найден для выбранной даты');
+      }
+      if (!periodValidation.canWrite) {
+        throw new Error(periodValidation.error || 'Период закрыт для изменений');
+      }
+
       // Validate amount
       const amountValidation = validatePositiveNumber(formData.amount);
       if (!amountValidation.valid) {
@@ -172,6 +186,7 @@ export default function Transactions() {
         counterparty_id: formData.counterparty_id || null,
         description: formData.description?.slice(0, 500) || null,
         created_by: user.id,
+        // period_id will be auto-assigned by DB trigger based on date
       });
 
       if (error) throw error;
@@ -211,6 +226,9 @@ export default function Transactions() {
     return false;
   });
 
+  // Check if no periods exist
+  const noPeriods = !periodValidation.hasPeriods && !periodValidation.isValidating;
+
   return (
     <DashboardLayout>
       <div className="page-header">
@@ -245,6 +263,16 @@ export default function Transactions() {
                     }}
                     className="space-y-4"
                   >
+                    {/* Period validation alert */}
+                    <PeriodValidationAlert
+                      isValid={periodValidation.isValid}
+                      canWrite={periodValidation.canWrite}
+                      error={periodValidation.error}
+                      periodName={periodValidation.periodName}
+                      status={periodValidation.status}
+                      isValidating={periodValidation.isValidating}
+                    />
+
                     <div className="grid grid-cols-3 gap-2">
                       {(['income', 'expense', 'transfer'] as const).map((type) => {
                         const info = TRANSACTION_TYPES[type];
@@ -283,6 +311,11 @@ export default function Transactions() {
                           value={formData.date}
                           onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         />
+                        {periodValidation.periodName && periodValidation.canWrite && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Период: {periodValidation.periodName}
+                          </p>
+                        )}
                       </div>
                       <div className="input-group">
                         <Label>Сумма *</Label>
@@ -395,7 +428,11 @@ export default function Transactions() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={createMutation.isPending || !periodValidation.canWrite}
+                    >
                       Добавить операцию
                     </Button>
                   </form>
@@ -405,6 +442,26 @@ export default function Transactions() {
           )}
         </div>
       </div>
+
+      {/* No periods warning */}
+      {noPeriods && (
+        <Card className="mb-6 border-warning bg-warning/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-warning mt-0.5" />
+              <div>
+                <p className="font-medium text-warning">Нет учётных периодов</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Для создания операций необходимо настроить учётные периоды.{' '}
+                  <Link to="/periods" className="text-primary underline hover:no-underline">
+                    Перейти к периодам →
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <Card className="mb-6">
@@ -457,64 +514,72 @@ export default function Transactions() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Дата</TableHead>
-                  <TableHead>Тип</TableHead>
+                  <TableHead className="w-28">Дата</TableHead>
+                  <TableHead className="w-28">Тип</TableHead>
                   <TableHead>Описание</TableHead>
                   <TableHead>Категория</TableHead>
-                  <TableHead>Счёт</TableHead>
+                  <TableHead>Контрагент</TableHead>
                   <TableHead className="text-right">Сумма</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTransactions.map((tx: any) => {
-                  const typeInfo = TRANSACTION_TYPES[tx.type as keyof typeof TRANSACTION_TYPES];
+                  const typeInfo = TRANSACTION_TYPES[tx.type as TransactionType];
                   return (
-                    <TableRow key={tx.id} className="table-row-hover">
+                    <TableRow key={tx.id}>
                       <TableCell className="font-medium">
                         {formatDate(tx.date)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={typeInfo.color}>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            tx.type === 'income' && 'border-success/30 text-success bg-success/5',
+                            tx.type === 'expense' && 'border-destructive/30 text-destructive bg-destructive/5',
+                            tx.type === 'transfer' && 'border-primary/30 text-primary bg-primary/5'
+                          )}
+                        >
                           {typeInfo.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <p>{tx.counterparty?.name || tx.description || '-'}</p>
-                          {tx.description && tx.counterparty?.name && (
-                            <p className="text-sm text-muted-foreground">{tx.description}</p>
-                          )}
-                        </div>
+                        {tx.description || '—'}
+                        {tx.type === 'transfer' && tx.account && tx.to_account && (
+                          <span className="text-muted-foreground text-xs block">
+                            {tx.account.name} → {tx.to_account.name}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {tx.category ? (
-                          <span
-                            className="inline-flex items-center gap-1.5"
+                          <Badge
+                            variant="outline"
+                            style={{
+                              borderColor: tx.category.color,
+                              backgroundColor: `${tx.category.color}10`,
+                            }}
                           >
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: tx.category.color }}
-                            />
                             {tx.category.name}
-                          </span>
-                        ) : tx.type === 'transfer' ? (
-                          <span className="text-muted-foreground">Перевод</span>
+                          </Badge>
                         ) : (
-                          '-'
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {tx.type === 'transfer' ? (
-                          <span className="text-sm">
-                            {tx.account?.name} → {tx.to_account?.name}
-                          </span>
-                        ) : (
-                          tx.account?.name || '-'
+                        {tx.counterparty?.name || (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className={cn('text-right font-semibold', typeInfo.color)}>
-                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
-                        {formatCurrency(Number(tx.amount))}
+                      <TableCell
+                        className={cn(
+                          'text-right font-medium',
+                          tx.type === 'income' && 'text-success',
+                          tx.type === 'expense' && 'text-destructive'
+                        )}
+                      >
+                        {tx.type === 'income' && '+'}
+                        {tx.type === 'expense' && '−'}
+                        {formatCurrency(tx.amount)}
                       </TableCell>
                     </TableRow>
                   );
