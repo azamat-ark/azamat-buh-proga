@@ -151,13 +151,13 @@ export default function Dashboard() {
         </div>
         {canEdit && (
           <div className="flex gap-2">
-            <Link to="/transactions/new">
+            <Link to="/transactions?add=true">
               <Button variant="outline" size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 Операция
               </Button>
             </Link>
-            <Link to="/invoices/new">
+            <Link to="/invoices?add=true">
               <Button size="sm">
                 <FileText className="h-4 w-4 mr-1" />
                 Счёт
@@ -205,7 +205,7 @@ export default function Dashboard() {
                 <ArrowRightLeft className="h-12 w-12 text-muted-foreground/30 mb-4" />
                 <p className="text-muted-foreground">Нет операций</p>
                 {canEdit && (
-                  <Link to="/transactions/new" className="mt-4">
+                  <Link to="/transactions?add=true" className="mt-4">
                     <Button variant="outline" size="sm">
                       <Plus className="h-4 w-4 mr-1" />
                       Добавить операцию
