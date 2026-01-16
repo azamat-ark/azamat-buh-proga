@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/hooks/useCompany';
@@ -141,7 +142,8 @@ export default function JournalEntries() {
         .from('accounting_periods')
         .select('*')
         .eq('company_id', currentCompany.id)
-        .neq('status', 'hard_closed')
+        // status is nullable, so include NULLs and exclude only hard-closed periods
+        .or('status.is.null,status.neq.hard_closed')
         .order('start_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -422,6 +424,15 @@ export default function JournalEntries() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {periods.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Нет периодов — создайте период в разделе{' '}
+                      <Link className="underline underline-offset-4" to="/periods">
+                        Периоды
+                      </Link>
+                      .
+                    </p>
+                  )}
                 </div>
                 <div className="input-group">
                   <Label>Тип документа</Label>
