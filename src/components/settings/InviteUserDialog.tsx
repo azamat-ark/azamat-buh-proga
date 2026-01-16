@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Clock, Check, X, Trash2 } from 'lucide-react';
 import { formatDate, ROLES } from '@/lib/constants';
 import { Database } from '@/integrations/supabase/types';
+import { sanitizeDbError, logError } from '@/lib/error-utils';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -60,16 +61,18 @@ export function InviteUserDialog() {
     enabled: !!currentCompany && isOwner,
   });
 
+  // Only owners can see member emails - viewers should not see personal contact info
   const { data: members = [] } = useQuery({
-    queryKey: ['company-members', currentCompany?.id],
+    queryKey: ['company-members', currentCompany?.id, isOwner],
     queryFn: async () => {
       if (!currentCompany) return [];
+      // Only fetch emails for owners to protect member privacy
+      const selectFields = isOwner 
+        ? `*, profile:profiles(full_name, email)` 
+        : `*, profile:profiles(full_name)`;
       const { data, error } = await supabase
         .from('company_members')
-        .select(`
-          *,
-          profile:profiles(full_name, email)
-        `)
+        .select(selectFields)
         .eq('company_id', currentCompany.id);
       if (error) throw error;
       return data || [];
@@ -102,7 +105,8 @@ export function InviteUserDialog() {
       toast({ title: 'Приглашение отправлено' });
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      logError('inviteUser', error);
+      toast({ title: 'Ошибка', description: sanitizeDbError(error), variant: 'destructive' });
     },
   });
 
@@ -119,7 +123,8 @@ export function InviteUserDialog() {
       toast({ title: 'Приглашение отменено' });
     },
     onError: (error: any) => {
-      toast({ title: 'Ошибка', description: error.message, variant: 'destructive' });
+      logError('deleteInvitation', error);
+      toast({ title: 'Ошибка', description: sanitizeDbError(error), variant: 'destructive' });
     },
   });
 
@@ -190,7 +195,7 @@ export function InviteUserDialog() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Имя</TableHead>
-                    <TableHead>Email</TableHead>
+                    {isOwner && <TableHead>Email</TableHead>}
                     <TableHead>Роль</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -200,7 +205,7 @@ export function InviteUserDialog() {
                       <TableCell className="font-medium">
                         {member.profile?.full_name || 'Без имени'}
                       </TableCell>
-                      <TableCell>{member.profile?.email}</TableCell>
+                      {isOwner && <TableCell>{member.profile?.email}</TableCell>}
                       <TableCell>
                         <Badge variant="secondary">
                           {ROLES[member.role as keyof typeof ROLES]?.label || member.role}
