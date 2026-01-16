@@ -231,161 +231,177 @@ export default function Transactions() {
                     <Plus className="h-4 w-4 mr-1" />
                     Добавить
                   </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Новая операция</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createMutation.mutate();
-                }}
-                className="space-y-4"
-              >
-                <div className="grid grid-cols-3 gap-2">
-                  {(['income', 'expense', 'transfer'] as const).map((type) => {
-                    const info = TRANSACTION_TYPES[type];
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, type })}
-                        className={cn(
-                          'p-3 rounded-lg border text-center transition-colors',
-                          formData.type === type
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        )}
-                      >
-                        {type === 'income' && <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />}
-                        {type === 'expense' && <TrendingDown className="h-5 w-5 mx-auto mb-1 text-destructive" />}
-                        {type === 'transfer' && <ArrowRightLeft className="h-5 w-5 mx-auto mb-1 text-primary" />}
-                        <span className="text-sm">{info.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                </DialogTrigger>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="input-group">
-                    <Label>Дата</Label>
-                    <Input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    />
-                  </div>
-                  <div className="input-group">
-                    <Label>Сумма *</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Новая операция</DialogTitle>
+                  </DialogHeader>
 
-                <div className="input-group">
-                  <Label>{formData.type === 'transfer' ? 'Со счёта' : 'Счёт'}</Label>
-                  <Select
-                    value={formData.account_id}
-                    onValueChange={(value) => setFormData({ ...formData, account_id: value })}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      createMutation.mutate();
+                    }}
+                    className="space-y-4"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите счёт" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((acc: any) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.name} ({formatCurrency(Number(acc.current_balance))})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['income', 'expense', 'transfer'] as const).map((type) => {
+                        const info = TRANSACTION_TYPES[type];
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, type })}
+                            className={cn(
+                              'p-3 rounded-lg border text-center transition-colors',
+                              formData.type === type
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/50'
+                            )}
+                          >
+                            {type === 'income' && (
+                              <TrendingUp className="h-5 w-5 mx-auto mb-1 text-success" />
+                            )}
+                            {type === 'expense' && (
+                              <TrendingDown className="h-5 w-5 mx-auto mb-1 text-destructive" />
+                            )}
+                            {type === 'transfer' && (
+                              <ArrowRightLeft className="h-5 w-5 mx-auto mb-1 text-primary" />
+                            )}
+                            <span className="text-sm">{info.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                {formData.type === 'transfer' && (
-                  <div className="input-group">
-                    <Label>На счёт</Label>
-                    <Select
-                      value={formData.to_account_id}
-                      onValueChange={(value) => setFormData({ ...formData, to_account_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите счёт" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts
-                          .filter((acc: any) => acc.id !== formData.account_id)
-                          .map((acc: any) => (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="input-group">
+                        <Label>Дата</Label>
+                        <Input
+                          type="date"
+                          value={formData.date}
+                          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        />
+                      </div>
+                      <div className="input-group">
+                        <Label>Сумма *</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={formData.amount}
+                          onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="input-group">
+                      <Label>{formData.type === 'transfer' ? 'Со счёта' : 'Счёт'}</Label>
+                      <Select
+                        value={formData.account_id}
+                        onValueChange={(value) => setFormData({ ...formData, account_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите счёт" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accounts.map((acc: any) => (
                             <SelectItem key={acc.id} value={acc.id}>
-                              {acc.name}
+                              {acc.name} ({formatCurrency(Number(acc.current_balance))})
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {formData.type !== 'transfer' && (
-                  <div className="input-group">
-                    <Label>Категория</Label>
-                    <Select
-                      value={formData.category_id}
-                      onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите категорию" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredCategories.map((cat: any) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                    {formData.type === 'transfer' && (
+                      <div className="input-group">
+                        <Label>На счёт</Label>
+                        <Select
+                          value={formData.to_account_id}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, to_account_id: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите счёт" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts
+                              .filter((acc: any) => acc.id !== formData.account_id)
+                              .map((acc: any) => (
+                                <SelectItem key={acc.id} value={acc.id}>
+                                  {acc.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                <div className="input-group">
-                  <Label>Контрагент</Label>
-                  <Select
-                    value={formData.counterparty_id}
-                    onValueChange={(value) => setFormData({ ...formData, counterparty_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите контрагента" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {counterparties.map((cp: any) => (
-                        <SelectItem key={cp.id} value={cp.id}>
-                          {cp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {formData.type !== 'transfer' && (
+                      <div className="input-group">
+                        <Label>Категория</Label>
+                        <Select
+                          value={formData.category_id}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, category_id: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите категорию" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredCategories.map((cat: any) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                <div className="input-group">
-                  <Label>Описание</Label>
-                  <Input
-                    placeholder="Комментарий к операции"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
+                    <div className="input-group">
+                      <Label>Контрагент</Label>
+                      <Select
+                        value={formData.counterparty_id}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, counterparty_id: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите контрагента" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {counterparties.map((cp: any) => (
+                            <SelectItem key={cp.id} value={cp.id}>
+                              {cp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <Button type="submit" className="w-full" disabled={createMutation.isPending}>
-                  Добавить операцию
-                </Button>
-              </form>
-              </DialogContent>
-            </Dialog>
-          </>
+                    <div className="input-group">
+                      <Label>Описание</Label>
+                      <Input
+                        placeholder="Комментарий к операции"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({ ...formData, description: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                      Добавить операцию
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </div>
       </div>
