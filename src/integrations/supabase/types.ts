@@ -809,6 +809,7 @@ export type Database = {
           notes: string | null
           number: string
           paid_amount: number | null
+          period_id: string | null
           status: Database["public"]["Enums"]["invoice_status"]
           subtotal: number | null
           tax_amount: number | null
@@ -829,6 +830,7 @@ export type Database = {
           notes?: string | null
           number: string
           paid_amount?: number | null
+          period_id?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
           subtotal?: number | null
           tax_amount?: number | null
@@ -849,6 +851,7 @@ export type Database = {
           notes?: string | null
           number?: string
           paid_amount?: number | null
+          period_id?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
           subtotal?: number | null
           tax_amount?: number | null
@@ -869,6 +872,13 @@ export type Database = {
             columns: ["counterparty_id"]
             isOneToOne: false
             referencedRelation: "counterparties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
             referencedColumns: ["id"]
           },
         ]
@@ -1484,6 +1494,7 @@ export type Database = {
           description: string | null
           id: string
           invoice_id: string | null
+          period_id: string | null
           to_account_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           vat_amount: number | null
@@ -1502,6 +1513,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          period_id?: string | null
           to_account_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           vat_amount?: number | null
@@ -1520,6 +1532,7 @@ export type Database = {
           description?: string | null
           id?: string
           invoice_id?: string | null
+          period_id?: string | null
           to_account_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           vat_amount?: number | null
@@ -1559,6 +1572,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
             referencedColumns: ["id"]
           },
           {
@@ -1609,11 +1629,20 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      can_write_to_period: { Args: { _period_id: string }; Returns: boolean }
       create_company_with_owner: {
         Args: { _bin_iin?: string; _company_name: string }
         Returns: string
       }
       get_current_user_email: { Args: never; Returns: string }
+      get_period_for_date: {
+        Args: { _company_id: string; _date: string }
+        Returns: string
+      }
+      get_period_status_message: {
+        Args: { _period_id: string }
+        Returns: string
+      }
       has_company_role: {
         Args: {
           _company_id: string
