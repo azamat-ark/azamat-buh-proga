@@ -1,18 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/hooks/useCompany';
+import { usePeriodsManager } from '@/hooks/usePeriodsManager';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PeriodPicker } from '@/components/period/PeriodPicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -22,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { 
   calculateTrialBalance, 
   buildBalanceSheet, 
@@ -33,29 +27,20 @@ import {
 } from '@/lib/accounting-utils';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 
 export default function BalanceSheet() {
   const { currentCompany } = useCompany();
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
-
-  // Fetch accounting periods
-  const { data: periods = [] } = useQuery({
-    queryKey: ['accounting-periods', currentCompany?.id],
-    queryFn: async () => {
-      if (!currentCompany?.id) return [];
-      const { data, error } = await supabase
-        .from('accounting_periods')
-        .select('*')
-        .eq('company_id', currentCompany.id)
-        .order('start_date', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!currentCompany?.id,
-  });
+  const { toast } = useToast();
+  const { 
+    selectedPeriodId, 
+    selectedPeriod, 
+    isLoading: periodsLoading,
+    hasPeriods,
+  } = usePeriodsManager();
 
   // Fetch chart of accounts with is_current flag
-  const { data: chartAccounts = [] } = useQuery({
+  const { data: chartAccounts = [], error: chartError } = useQuery({
     queryKey: ['chart-of-accounts-full', currentCompany?.id],
     queryFn: async () => {
       if (!currentCompany?.id) return [];
@@ -65,14 +50,17 @@ export default function BalanceSheet() {
         .eq('company_id', currentCompany.id)
         .eq('is_active', true)
         .order('code');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching chart of accounts:', error);
+        throw error;
+      }
       return data as ChartAccount[];
     },
     enabled: !!currentCompany?.id,
   });
 
   // Fetch journal lines for period
-  const { data: journalData = { lines: [], openings: [] } } = useQuery({
+  const { data: journalData = { lines: [], openings: [] }, isLoading: journalLoading, error: journalError } = useQuery({
     queryKey: ['journal-lines-bs', currentCompany?.id, selectedPeriodId],
     queryFn: async () => {
       if (!currentCompany?.id || !selectedPeriodId) return { lines: [], openings: [] };
@@ -84,7 +72,10 @@ export default function BalanceSheet() {
         .eq('period_id', selectedPeriodId)
         .eq('status', 'posted');
       
-      if (entriesError) throw entriesError;
+      if (entriesError) {
+        console.error('Error fetching journal entries:', entriesError);
+        throw entriesError;
+      }
       
       const entryIds = entries?.map(e => e.id) || [];
       
@@ -95,7 +86,10 @@ export default function BalanceSheet() {
           .select('account_id, debit, credit')
           .in('entry_id', entryIds);
         
-        if (linesError) throw linesError;
+        if (linesError) {
+          console.error('Error fetching journal lines:', linesError);
+          throw linesError;
+        }
         lines = (linesData || []).map(l => ({
           account_id: l.account_id,
           debit: Number(l.debit) || 0,
@@ -109,7 +103,10 @@ export default function BalanceSheet() {
         .eq('company_id', currentCompany.id)
         .eq('period_id', selectedPeriodId);
       
-      if (openingsError) throw openingsError;
+      if (openingsError) {
+        console.error('Error fetching opening balances:', openingsError);
+        throw openingsError;
+      }
       
       const openings: OpeningBalance[] = (openingsData || []).map(ob => ({
         account_id: ob.account_id,
@@ -122,14 +119,21 @@ export default function BalanceSheet() {
     enabled: !!currentCompany?.id && !!selectedPeriodId,
   });
 
+  // Show errors
+  if (chartError || journalError) {
+    toast({
+      title: 'Ошибка загрузки данных',
+      description: (chartError || journalError)?.message,
+      variant: 'destructive',
+    });
+  }
+
   // Calculate balance sheet
   const balanceSheet = useMemo(() => {
     if (!chartAccounts.length) return null;
     const trialBalance = calculateTrialBalance(chartAccounts, journalData.lines, journalData.openings);
     return buildBalanceSheet(trialBalance);
   }, [chartAccounts, journalData]);
-
-  const selectedPeriod = periods.find(p => p.id === selectedPeriodId);
 
   const handleExportCSV = () => {
     if (!balanceSheet) return;
@@ -211,15 +215,23 @@ export default function BalanceSheet() {
       <TableRow className="bg-muted/30">
         <TableCell colSpan={2} className="font-medium">{section.title}</TableCell>
       </TableRow>
-      {section.accounts.map((acc) => {
-        const balance = isLiability ? Math.abs(acc.closingCredit - acc.closingDebit) : acc.closingDebit - acc.closingCredit;
-        return (
-          <TableRow key={acc.accountId}>
-            <TableCell className="pl-8">{acc.code} — {acc.name}</TableCell>
-            <TableCell className="text-right">{formatCurrency(balance)}</TableCell>
-          </TableRow>
-        );
-      })}
+      {section.accounts.length === 0 ? (
+        <TableRow>
+          <TableCell colSpan={2} className="text-muted-foreground text-center py-4">
+            Нет данных
+          </TableCell>
+        </TableRow>
+      ) : (
+        section.accounts.map((acc) => {
+          const balance = isLiability ? Math.abs(acc.closingCredit - acc.closingDebit) : acc.closingDebit - acc.closingCredit;
+          return (
+            <TableRow key={acc.accountId}>
+              <TableCell className="pl-8">{acc.code} — {acc.name}</TableCell>
+              <TableCell className="text-right">{formatCurrency(balance)}</TableCell>
+            </TableRow>
+          );
+        })
+      )}
       <TableRow className="bg-muted/20">
         <TableCell className="pl-8 font-medium">Итого {section.title.toLowerCase()}</TableCell>
         <TableCell className="text-right font-medium">{formatCurrency(section.total)}</TableCell>
@@ -234,15 +246,23 @@ export default function BalanceSheet() {
         <TableRow className="bg-muted/30">
           <TableCell colSpan={2} className="font-medium">Капитал</TableCell>
         </TableRow>
-        {balanceSheet.equity.items.map((acc) => {
-          const balance = Math.abs(acc.closingCredit - acc.closingDebit);
-          return (
-            <TableRow key={acc.accountId}>
-              <TableCell className="pl-8">{acc.code} — {acc.name}</TableCell>
-              <TableCell className="text-right">{formatCurrency(balance)}</TableCell>
-            </TableRow>
-          );
-        })}
+        {balanceSheet.equity.items.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={2} className="text-muted-foreground text-center py-4">
+              Нет данных
+            </TableCell>
+          </TableRow>
+        ) : (
+          balanceSheet.equity.items.map((acc) => {
+            const balance = Math.abs(acc.closingCredit - acc.closingDebit);
+            return (
+              <TableRow key={acc.accountId}>
+                <TableCell className="pl-8">{acc.code} — {acc.name}</TableCell>
+                <TableCell className="text-right">{formatCurrency(balance)}</TableCell>
+              </TableRow>
+            );
+          })
+        )}
         <TableRow className="bg-muted/20">
           <TableCell className="pl-8 font-medium">Итого капитал</TableCell>
           <TableCell className="text-right font-medium">{formatCurrency(balanceSheet.equity.total)}</TableCell>
@@ -250,6 +270,8 @@ export default function BalanceSheet() {
       </>
     );
   };
+
+  const isDataLoading = periodsLoading || journalLoading;
 
   return (
     <DashboardLayout>
@@ -274,17 +296,7 @@ export default function BalanceSheet() {
         <CardContent className="pt-4">
           <div className="flex items-center gap-4">
             <div className="flex-1 max-w-xs">
-              <Label>На дату (конец периода)</Label>
-              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите период" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PeriodPicker label="На дату (конец периода)" showDates />
             </div>
             {balanceSheet && (
               <div className="flex items-center gap-2">
@@ -305,10 +317,24 @@ export default function BalanceSheet() {
         </CardContent>
       </Card>
 
-      {!selectedPeriodId ? (
+      {!hasPeriods ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-warning" />
+            <p>Создайте учётные периоды для просмотра отчётов</p>
+          </CardContent>
+        </Card>
+      ) : !selectedPeriodId ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Выберите период для просмотра баланса
+          </CardContent>
+        </Card>
+      ) : isDataLoading ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
+            <p>Загрузка данных...</p>
           </CardContent>
         </Card>
       ) : balanceSheet ? (

@@ -1,18 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompany } from '@/hooks/useCompany';
+import { usePeriodsManager } from '@/hooks/usePeriodsManager';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { PeriodPicker } from '@/components/period/PeriodPicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -22,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, TrendingUp, TrendingDown } from 'lucide-react';
+import { Download, FileText, TrendingUp, TrendingDown, Loader2, AlertCircle } from 'lucide-react';
 import { 
   calculateTrialBalance, 
   buildProfitLoss, 
@@ -32,29 +26,20 @@ import {
 } from '@/lib/accounting-utils';
 import { exportToCSV, exportToPDF } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfitLoss() {
   const { currentCompany } = useCompany();
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
-
-  // Fetch accounting periods
-  const { data: periods = [] } = useQuery({
-    queryKey: ['accounting-periods', currentCompany?.id],
-    queryFn: async () => {
-      if (!currentCompany?.id) return [];
-      const { data, error } = await supabase
-        .from('accounting_periods')
-        .select('*')
-        .eq('company_id', currentCompany.id)
-        .order('start_date', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!currentCompany?.id,
-  });
+  const { toast } = useToast();
+  const { 
+    selectedPeriodId, 
+    selectedPeriod, 
+    isLoading: periodsLoading,
+    hasPeriods,
+  } = usePeriodsManager();
 
   // Fetch chart of accounts
-  const { data: chartAccounts = [] } = useQuery({
+  const { data: chartAccounts = [], error: chartError } = useQuery({
     queryKey: ['chart-of-accounts', currentCompany?.id],
     queryFn: async () => {
       if (!currentCompany?.id) return [];
@@ -64,14 +49,17 @@ export default function ProfitLoss() {
         .eq('company_id', currentCompany.id)
         .eq('is_active', true)
         .order('code');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching chart of accounts:', error);
+        throw error;
+      }
       return data as ChartAccount[];
     },
     enabled: !!currentCompany?.id,
   });
 
   // Fetch journal lines for period
-  const { data: journalData = { lines: [] } } = useQuery({
+  const { data: journalData = { lines: [] }, isLoading: journalLoading, error: journalError } = useQuery({
     queryKey: ['journal-lines-pl', currentCompany?.id, selectedPeriodId],
     queryFn: async () => {
       if (!currentCompany?.id || !selectedPeriodId) return { lines: [] };
@@ -83,7 +71,10 @@ export default function ProfitLoss() {
         .eq('period_id', selectedPeriodId)
         .eq('status', 'posted');
       
-      if (entriesError) throw entriesError;
+      if (entriesError) {
+        console.error('Error fetching journal entries:', entriesError);
+        throw entriesError;
+      }
       
       const entryIds = entries?.map(e => e.id) || [];
       
@@ -94,7 +85,10 @@ export default function ProfitLoss() {
           .select('account_id, debit, credit')
           .in('entry_id', entryIds);
         
-        if (linesError) throw linesError;
+        if (linesError) {
+          console.error('Error fetching journal lines:', linesError);
+          throw linesError;
+        }
         lines = (linesData || []).map(l => ({
           account_id: l.account_id,
           debit: Number(l.debit) || 0,
@@ -107,6 +101,15 @@ export default function ProfitLoss() {
     enabled: !!currentCompany?.id && !!selectedPeriodId,
   });
 
+  // Show errors
+  if (chartError || journalError) {
+    toast({
+      title: 'Ошибка загрузки данных',
+      description: (chartError || journalError)?.message,
+      variant: 'destructive',
+    });
+  }
+
   // Calculate P&L
   const profitLoss = useMemo(() => {
     if (!chartAccounts.length) return null;
@@ -114,8 +117,6 @@ export default function ProfitLoss() {
     const trialBalance = calculateTrialBalance(chartAccounts, journalData.lines, emptyOpenings);
     return buildProfitLoss(trialBalance);
   }, [chartAccounts, journalData]);
-
-  const selectedPeriod = periods.find(p => p.id === selectedPeriodId);
 
   const handleExportCSV = () => {
     if (!profitLoss) return;
@@ -164,6 +165,8 @@ export default function ProfitLoss() {
     );
   };
 
+  const isDataLoading = periodsLoading || journalLoading;
+
   return (
     <DashboardLayout>
       <div className="page-header">
@@ -187,17 +190,7 @@ export default function ProfitLoss() {
         <CardContent className="pt-4">
           <div className="flex items-center gap-4">
             <div className="flex-1 max-w-xs">
-              <Label>Период</Label>
-              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите период" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PeriodPicker showDates />
             </div>
             {profitLoss && (
               <div className="flex items-center gap-2">
@@ -218,10 +211,24 @@ export default function ProfitLoss() {
         </CardContent>
       </Card>
 
-      {!selectedPeriodId ? (
+      {!hasPeriods ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-warning" />
+            <p>Создайте учётные периоды для просмотра отчётов</p>
+          </CardContent>
+        </Card>
+      ) : !selectedPeriodId ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             Выберите период для просмотра отчёта
+          </CardContent>
+        </Card>
+      ) : isDataLoading ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin" />
+            <p>Загрузка данных...</p>
           </CardContent>
         </Card>
       ) : profitLoss ? (

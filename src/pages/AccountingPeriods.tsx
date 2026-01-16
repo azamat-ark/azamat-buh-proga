@@ -399,13 +399,16 @@ export default function AccountingPeriods() {
           </li>
           <li className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            <strong>Мягко закрыт</strong> — проводки только для главного бухгалтера
+            <strong>Мягко закрыт</strong> — все изменения заблокированы
           </li>
           <li className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-destructive" />
-            <strong>Закрыт</strong> — никакие изменения невозможны
+            <strong>Закрыт</strong> — никакие изменения невозможны (навсегда)
           </li>
         </ul>
+        <p className="text-xs text-muted-foreground mt-2">
+          Может быть только один открытый период. При закрытии периода автоматически создайте новый.
+        </p>
       </div>
     </DashboardLayout>
   );

@@ -145,10 +145,10 @@ async function createAccountingPeriods(companyId: string): Promise<{ count: numb
 
     const periodsToInsert = [];
 
-    // Create periods from January to current month + 1 (but not beyond December)
-    const endMonth = Math.min(currentMonth + 1, 11);
-    
-    for (let month = 0; month <= endMonth; month++) {
+    // Create periods from January to current month
+    // ONLY current month is 'open', all previous months are 'soft_closed'
+    // This enforces the single open period rule at the DB level
+    for (let month = 0; month <= currentMonth; month++) {
       const startDate = startOfMonth(new Date(currentYear, month, 1));
       const endDate = endOfMonth(startDate);
       
@@ -157,7 +157,8 @@ async function createAccountingPeriods(companyId: string): Promise<{ count: numb
         name: `${monthNames[month]} ${currentYear}`,
         start_date: format(startDate, 'yyyy-MM-dd'),
         end_date: format(endDate, 'yyyy-MM-dd'),
-        status: 'open' as const,
+        // Only current month is open (enforces single open period DB trigger)
+        status: month === currentMonth ? 'open' : 'soft_closed' as const,
         notes: 'Автоматически создан при регистрации',
       });
     }
