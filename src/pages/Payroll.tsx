@@ -760,10 +760,10 @@ export default function Payroll() {
               <div className="flex flex-wrap gap-x-6 gap-y-1 mt-1 text-muted-foreground">
                 <span>МРП: {formatCurrency(effectiveTaxSettings.mrp)}</span>
                 <span>МЗП: {formatCurrency(effectiveTaxSettings.mzp)}</span>
-                <span>ОПВ: {effectiveTaxSettings.opv_rate * 100}%</span>
-                <span>ИПН (резидент): {effectiveTaxSettings.ipn_resident_rate * 100}%</span>
-                <span>СН: {effectiveTaxSettings.social_tax_rate * 100}%</span>
-                <span>СО: {effectiveTaxSettings.social_contrib_rate * 100}%</span>
+                <span>ОПВ: {(effectiveTaxSettings.opv_rate * 100).toFixed(1)}%</span>
+                <span>ИПН (резидент): {(effectiveTaxSettings.ipn_resident_rate * 100).toFixed(1)}%</span>
+                <span>СН: {(effectiveTaxSettings.social_tax_rate * 100).toFixed(1)}%</span>
+                <span>СО: {(effectiveTaxSettings.social_contrib_rate * 100).toFixed(1)}%</span>
                 <span>Вычет: {effectiveTaxSettings.standard_deduction_mrp} МРП</span>
               </div>
               {!taxSettings && (
@@ -1175,15 +1175,15 @@ export default function Payroll() {
                             <h5 className="font-medium mb-2">Удержания с работника</h5>
                             <div className="grid grid-cols-3 gap-2 text-sm">
                               <div>
-                                <p className="text-muted-foreground">ОПВ ({payrollPreview.ratesUsed.opvRate * 100}%)</p>
+                                <p className="text-muted-foreground">ОПВ ({(payrollPreview.ratesUsed.opvRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.opv)}</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground">ВОСМС ({payrollPreview.ratesUsed.vosmsEmployeeRate * 100}%)</p>
+                                <p className="text-muted-foreground">ВОСМС ({(payrollPreview.ratesUsed.vosmsEmployeeRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.vosmsEmployee)}</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground">ИПН ({payrollPreview.ratesUsed.ipnRate * 100}%)</p>
+                                <p className="text-muted-foreground">ИПН ({(payrollPreview.ratesUsed.ipnRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.ipn)}</p>
                               </div>
                             </div>
@@ -1195,7 +1195,7 @@ export default function Payroll() {
                           <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
                             <p>Налогооблагаемый доход = {formatPayrollAmount(payrollPreview.grossSalary)} − {formatPayrollAmount(payrollPreview.opv)} (ОПВ) − {formatPayrollAmount(payrollPreview.standardDeduction)} (вычет {payrollPreview.ratesUsed.standardDeductionMrp} МРП)</p>
                             <p>= {formatPayrollAmount(payrollPreview.taxableIncome)}</p>
-                            <p>ИПН = {formatPayrollAmount(payrollPreview.taxableIncome)} × {payrollPreview.ratesUsed.ipnRate * 100}% = {formatPayrollAmount(payrollPreview.ipn)}</p>
+                            <p>ИПН = {formatPayrollAmount(payrollPreview.taxableIncome)} × {(payrollPreview.ratesUsed.ipnRate * 100).toFixed(1)}% = {formatPayrollAmount(payrollPreview.ipn)}</p>
                           </div>
 
                           <Separator />
@@ -1204,15 +1204,15 @@ export default function Payroll() {
                             <h5 className="font-medium mb-2">Расходы работодателя</h5>
                             <div className="grid grid-cols-3 gap-2 text-sm">
                               <div>
-                                <p className="text-muted-foreground">Соц. налог ({payrollPreview.ratesUsed.socialTaxRate * 100}%)</p>
+                                <p className="text-muted-foreground">Соц. налог ({(payrollPreview.ratesUsed.socialTaxRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.socialTax)}</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground">Соц. отчисления ({payrollPreview.ratesUsed.socialContribRate * 100}%)</p>
+                                <p className="text-muted-foreground">Соц. отчисления ({(payrollPreview.ratesUsed.socialContribRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.socialContributions)}</p>
                               </div>
                               <div>
-                                <p className="text-muted-foreground">ВОСМС ({payrollPreview.ratesUsed.vosmsEmployerRate * 100}%)</p>
+                                <p className="text-muted-foreground">ВОСМС ({(payrollPreview.ratesUsed.vosmsEmployerRate * 100).toFixed(1)}%)</p>
                                 <p>{formatPayrollAmount(payrollPreview.vosmsEmployer)}</p>
                               </div>
                             </div>
