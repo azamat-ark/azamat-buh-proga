@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompany } from '@/hooks/useCompany';
+import { useCompanyInitialization } from '@/hooks/useCompanyInitialization';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { Loader2 } from 'lucide-react';
@@ -17,6 +18,9 @@ export function DashboardLayout({ children, title, description, actions }: Dashb
   const { user, loading: authLoading } = useAuth();
   const { companies, isLoading: companiesLoading } = useCompany();
   const navigate = useNavigate();
+  
+  // Auto-initialize company data (chart of accounts, periods, etc.) if missing
+  const initStatus = useCompanyInitialization();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -34,6 +38,16 @@ export function DashboardLayout({ children, title, description, actions }: Dashb
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show loading while initializing company data (chart of accounts, etc.)
+  if (initStatus.isInitializing) {
+    return (
+      <div className="flex h-screen items-center justify-center flex-col gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Настройка данных компании...</p>
       </div>
     );
   }
