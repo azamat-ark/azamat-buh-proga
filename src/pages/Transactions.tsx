@@ -44,6 +44,7 @@ import { ImportCSVDialog } from '@/components/transactions/ImportCSVDialog';
 import { ExportButtons } from '@/components/transactions/ExportButtons';
 import { Database } from '@/integrations/supabase/types';
 import { validatePositiveNumber } from '@/lib/validation-schemas';
+import { createTransaction } from '@/lib/transaction-service';
 
 type TransactionType = Database['public']['Enums']['transaction_type'];
 
@@ -175,8 +176,9 @@ export default function Transactions() {
         throw new Error(amountValidation.error || 'Неверная сумма');
       }
 
-      const { error } = await supabase.from('transactions').insert({
+      await createTransaction({
         company_id: currentCompany.id,
+        user_id: user.id,
         date: formData.date,
         type: formData.type,
         amount: amountValidation.value,
@@ -185,11 +187,7 @@ export default function Transactions() {
         category_id: formData.type !== 'transfer' ? formData.category_id || null : null,
         counterparty_id: formData.counterparty_id || null,
         description: formData.description?.slice(0, 500) || null,
-        created_by: user.id,
-        // period_id will be auto-assigned by DB trigger based on date
       });
-
-      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });

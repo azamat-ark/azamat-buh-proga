@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, Download, FileText, Check, X } from 'lucide-react';
 import { parseCSV, downloadCSVTemplate, ParsedTransaction } from '@/lib/export-utils';
 import { formatCurrency } from '@/lib/constants';
+import { createTransaction } from '@/lib/transaction-service';
 
 export function ImportCSVDialog() {
   const { currentCompany } = useCompany();
@@ -81,35 +82,34 @@ export function ImportCSVDialog() {
     mutationFn: async () => {
       if (!currentCompany || !user) throw new Error('No company or user');
 
-      const transactions = parsedData.map(tx => {
+      const promises = parsedData.map(async (tx) => {
         // Find matching account, category, counterparty by name
         const account = accounts.find((a: any) => 
-          a.name.toLowerCase() === tx.account.toLowerCase()
+          a.name.toLowerCase() === (tx.account || '').toLowerCase()
         );
         const category = categories.find((c: any) => 
-          c.name.toLowerCase() === tx.category.toLowerCase() && c.type === tx.type
+          c.name.toLowerCase() === (tx.category || '').toLowerCase() && c.type === tx.type
         );
         const counterparty = counterparties.find((cp: any) => 
-          cp.name.toLowerCase() === tx.counterparty.toLowerCase()
+          cp.name.toLowerCase() === (tx.counterparty || '').toLowerCase()
         );
 
-        return {
+        await createTransaction({
           company_id: currentCompany.id,
+          user_id: user.id,
           date: tx.date,
-          type: tx.type,
+          type: tx.type as any,
           amount: tx.amount,
           account_id: account?.id || null,
           category_id: tx.type !== 'transfer' ? category?.id || null : null,
           counterparty_id: counterparty?.id || null,
           description: tx.description || null,
-          created_by: user.id,
-        };
+        });
       });
 
-      const { error } = await supabase.from('transactions').insert(transactions);
-      if (error) throw error;
+      await Promise.all(promises);
       
-      return transactions.length;
+      return parsedData.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
