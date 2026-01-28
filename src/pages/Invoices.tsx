@@ -42,6 +42,8 @@ import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
 import { validatePositiveNumber, validateNonNegativeNumber } from '@/lib/validation-schemas';
 import { sanitizeDbError, logError } from '@/lib/error-utils';
+import { calculateInvoiceTotal } from '@/lib/invoice-calculations';
+import { recordPayment } from '@/lib/payment-service';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -197,7 +199,7 @@ export default function Invoices() {
         throw new Error('Добавьте минимум одну позицию');
       }
 
-      const subtotal = validatedLines.reduce((sum, l) => sum + (l.quantity * l.price), 0);
+      const subtotal = calculateInvoiceTotal(validatedLines);
 
       // Get next invoice number with atomic increment to prevent duplicates
       const { data: company, error: companyError } = await supabase
@@ -316,52 +318,18 @@ export default function Invoices() {
         throw new Error('Выберите счёт');
       }
 
-      // Create payment record
-      const { error: paymentError } = await supabase
-        .from('invoice_payments')
-        .insert({
-          company_id: currentCompany.id,
-          invoice_id: selectedInvoice.id,
-          account_id: paymentData.account_id,
-          amount: amountValidation.value,
-          date: paymentData.date,
-          method: paymentData.method || null,
-          note: paymentData.note || null,
-          created_by: user.id,
-        });
-
-      if (paymentError) throw paymentError;
-
-      // Also create a transaction for the payment
-      const { error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          company_id: currentCompany.id,
-          type: 'income',
-          amount: amountValidation.value,
-          date: paymentData.date,
-          account_id: paymentData.account_id,
-          counterparty_id: selectedInvoice.counterparty_id,
-          description: `Оплата по счёту ${selectedInvoice.number}`,
-          invoice_id: selectedInvoice.id,
-          created_by: user.id,
-        });
-
-      if (txError) {
-        console.error('Error creating transaction for payment:', txError);
-        // Don't throw - payment is already recorded
-      }
-
-      // Update account balance directly 
-      const account = accounts.find((a: any) => a.id === paymentData.account_id);
-      if (account) {
-        await supabase
-          .from('accounts')
-          .update({ 
-            current_balance: Number(account.current_balance) + amountValidation.value
-          })
-          .eq('id', paymentData.account_id);
-      }
+      await recordPayment(supabase, {
+        company_id: currentCompany.id,
+        invoice_id: selectedInvoice.id,
+        account_id: paymentData.account_id,
+        amount: amountValidation.value,
+        date: paymentData.date,
+        method: paymentData.method,
+        note: paymentData.note,
+        user_id: user.id,
+        counterparty_id: selectedInvoice.counterparty_id,
+        invoice_number: selectedInvoice.number,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -424,9 +392,7 @@ export default function Invoices() {
   );
 
   const calculateTotal = () => {
-    return formData.lines
-      .filter(l => l.price)
-      .reduce((sum, l) => sum + (parseFloat(l.quantity || '0') * parseFloat(l.price || '0')), 0);
+    return calculateInvoiceTotal(formData.lines);
   };
 
   return (
