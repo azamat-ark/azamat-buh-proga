@@ -230,4 +230,115 @@ describe('Accounting Logic', () => {
     // Check Journal Lines creation
     expect(supabase.from).toHaveBeenCalledWith('journal_lines');
   });
+
+  it('5. Journal Entry Sync Test: should create correct journal lines for Income transaction', async () => {
+    const mockTransaction = { id: 'tx-sync-1' };
+    const mockPeriodId = 'period-sync-1';
+    const mockJournalEntry = { id: 'je-sync-1' };
+
+    // Spies to capture calls
+    const journalLinesInsertSpy = vi.fn().mockResolvedValue({ error: null });
+
+    // Helper to create chainable mock
+    const createChain = (result: any) => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: result, error: null }),
+          })),
+          single: vi.fn().mockResolvedValue({ data: result, error: null }),
+        })),
+        single: vi.fn().mockResolvedValue({ data: result, error: null }),
+      })),
+      insert: vi.fn(() => ({
+        select: vi.fn(() => ({
+          single: vi.fn().mockResolvedValue({ data: result, error: null }),
+        })),
+      })),
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn().mockResolvedValue({ data: result, error: null }),
+        })),
+        single: vi.fn().mockResolvedValue({ data: result, error: null }),
+      })),
+      single: vi.fn().mockResolvedValue({ data: result, error: null }),
+    });
+
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'transactions') {
+        return {
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({ data: mockTransaction, error: null }),
+            })),
+          })),
+        };
+      }
+      if (table === 'chart_of_accounts') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn((field, val) => ({
+              eq: vi.fn((field2, code) => ({
+                single: vi.fn().mockImplementation(() => {
+                  return Promise.resolve({ data: { id: `acc-${code}` }, error: null });
+                }),
+              })),
+            })),
+          })),
+        };
+      }
+      if (table === 'journal_entries') {
+        return {
+          insert: vi.fn((data) => {
+            return {
+              select: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({ data: mockJournalEntry, error: null }),
+              })),
+            };
+          }),
+        };
+      }
+      if (table === 'journal_lines') {
+        return {
+          insert: journalLinesInsertSpy,
+        };
+      }
+      return createChain({});
+    });
+
+    (supabase.rpc as any).mockResolvedValue({ data: mockPeriodId, error: null });
+
+    const amount = 1500;
+    await createTransaction({
+      company_id: mockCompanyId,
+      user_id: mockUserId,
+      date: mockDate,
+      type: 'income',
+      amount: amount,
+      account_id: 'bank-acc-1',
+      description: 'Sync Test Income',
+    });
+
+    // Assertions
+    expect(journalLinesInsertSpy).toHaveBeenCalledTimes(1);
+
+    // Check the arguments passed to insert
+    const insertedLines = journalLinesInsertSpy.mock.calls[0][0];
+
+    expect(insertedLines).toHaveLength(2);
+
+    // Line 1: Debit 1030 (Cash/Bank)
+    const debitLine = insertedLines.find((l: any) => l.account_id === 'acc-1030');
+    expect(debitLine).toBeDefined();
+    expect(debitLine.debit).toBe(amount);
+    expect(debitLine.credit).toBe(0);
+    expect(debitLine.entry_id).toBe(mockJournalEntry.id);
+
+    // Line 2: Credit 6010 (Revenue - since no invoice_id provided)
+    const creditLine = insertedLines.find((l: any) => l.account_id === 'acc-6010');
+    expect(creditLine).toBeDefined();
+    expect(creditLine.credit).toBe(amount);
+    expect(creditLine.debit).toBe(0);
+    expect(creditLine.entry_id).toBe(mockJournalEntry.id);
+  });
 });
