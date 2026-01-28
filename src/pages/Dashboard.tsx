@@ -15,6 +15,19 @@ import {
   Users,
   AlertCircle,
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from 'recharts';
 import { formatCurrency, formatDate, TRANSACTION_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +79,76 @@ export default function Dashboard() {
       };
     },
     enabled: !!currentCompany,
+  });
+
+  const { data: chartData } = useQuery({
+    queryKey: ['dashboard-charts', currentCompany?.id],
+    queryFn: async () => {
+      if (!currentCompany) return null;
+
+      const now = new Date();
+      // Last 6 months for Trend
+      // 5 months ago + current month
+      const sixMonthsAgoDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      const sixMonthsAgo = sixMonthsAgoDate.toISOString().split('T')[0];
+      const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('date, type, amount, category:categories(name)')
+        .eq('company_id', currentCompany.id)
+        .gte('date', sixMonthsAgo)
+        .lte('date', endOfCurrentMonth);
+
+      if (!transactions) return { trend: [], structure: [] };
+
+      // Process Trend Data
+      const trendMap = new Map<string, { name: string, income: number, expense: number }>();
+
+      // Initialize months to ensure all months are present even if no transactions
+      for (let i = 0; i < 6; i++) {
+         const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+         const name = d.toLocaleString('ru-RU', { month: 'short' }); // Use Russian locale
+         trendMap.set(key, { name: name.charAt(0).toUpperCase() + name.slice(1), income: 0, expense: 0 });
+      }
+
+      transactions.forEach(t => {
+          const key = t.date.substring(0, 7); // YYYY-MM
+          // Only process if within our initialized range (should be, due to query filter)
+          // But key format must match loop generation.
+          // The loop generates '2025-01' or '2025-10'.
+          // t.date '2025-01-15' -> '2025-01'
+
+          if (trendMap.has(key)) {
+             const entry = trendMap.get(key)!;
+             if (t.type === 'income') entry.income += Number(t.amount);
+             if (t.type === 'expense') entry.expense += Number(t.amount);
+          }
+      });
+
+      const trend = Array.from(trendMap.values());
+
+      // Process Structure Data (Expenses for current month)
+      const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const currentMonthExpenses = transactions.filter(t =>
+        t.type === 'expense' && t.date >= startOfCurrentMonth
+      );
+
+      const categoryMap = new Map<string, number>();
+      currentMonthExpenses.forEach(t => {
+         const catName = t.category?.name || 'Без категории';
+         categoryMap.set(catName, (categoryMap.get(catName) || 0) + Number(t.amount));
+      });
+
+      const structure = Array.from(categoryMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value) // Sort by amount
+        .slice(0, 5); // Top 5
+
+      return { trend, structure };
+    },
+    enabled: !!currentCompany
   });
 
   const { data: recentTransactions = [] } = useQuery({
@@ -140,6 +223,8 @@ export default function Dashboard() {
     },
   ];
 
+  const PIE_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#a855f7'];
+
   return (
     <DashboardLayout>
       <div className="page-header">
@@ -185,6 +270,75 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Visualizations Grid */}
+      {chartData && (chartData.trend.length > 0 || chartData.structure.length > 0) && (
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle>Динамика за 6 месяцев</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData.trend}>
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
+                  <Legend />
+                  <Area type="monotone" dataKey="income" name="Доход" stroke="#22c55e" fillOpacity={1} fill="url(#colorIncome)" />
+                  <Area type="monotone" dataKey="expense" name="Расход" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Структура расходов</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              {chartData.structure.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData.structure}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.structure.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Нет расходов за текущий месяц
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Transactions */}
