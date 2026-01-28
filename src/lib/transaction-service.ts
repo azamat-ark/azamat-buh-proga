@@ -130,7 +130,7 @@ export async function createTransaction(params: CreateTransactionParams) {
     .single();
 
   if (entryError) {
-    console.error('Error creating journal entry:', entryError);
+    console.error('CRITICAL: Journal Entry Creation Failed:', JSON.stringify(entryError));
     return transaction;
   }
 
@@ -159,7 +159,7 @@ export async function createTransaction(params: CreateTransactionParams) {
     .insert(lines);
 
   if (linesError) {
-    console.error('Error creating journal lines:', linesError);
+    console.error('CRITICAL: Journal Lines Creation Failed:', JSON.stringify(linesError));
   }
 
   return transaction;
