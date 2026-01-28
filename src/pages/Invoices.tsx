@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 import { Database } from '@/integrations/supabase/types';
 import { validatePositiveNumber, validateNonNegativeNumber } from '@/lib/validation-schemas';
 import { sanitizeDbError, logError } from '@/lib/error-utils';
+import { createTransaction } from '@/lib/transaction-service';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -333,21 +334,19 @@ export default function Invoices() {
       if (paymentError) throw paymentError;
 
       // Also create a transaction for the payment
-      const { error: txError } = await supabase
-        .from('transactions')
-        .insert({
+      try {
+        await createTransaction({
           company_id: currentCompany.id,
+          user_id: user.id,
+          date: paymentData.date,
           type: 'income',
           amount: amountValidation.value,
-          date: paymentData.date,
           account_id: paymentData.account_id,
           counterparty_id: selectedInvoice.counterparty_id,
           description: `Оплата по счёту ${selectedInvoice.number}`,
           invoice_id: selectedInvoice.id,
-          created_by: user.id,
         });
-
-      if (txError) {
+      } catch (txError) {
         console.error('Error creating transaction for payment:', txError);
         // Don't throw - payment is already recorded
       }
