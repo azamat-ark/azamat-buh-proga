@@ -625,7 +625,11 @@ export default function Invoices() {
                   const remaining = Number(inv.total) - Number(inv.paid_amount || 0);
                   return (
                     <TableRow key={inv.id} className="table-row-hover">
-                      <TableCell className="font-medium">{inv.number}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link to={`/invoices/${inv.id}`} className="text-primary hover:underline">
+                          {inv.number}
+                        </Link>
+                      </TableCell>
                       <TableCell>{formatDate(inv.date)}</TableCell>
                       <TableCell>{inv.counterparty?.name || '-'}</TableCell>
                       <TableCell>

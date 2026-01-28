@@ -39,6 +39,8 @@ export default function Items() {
     description: '',
     unit: 'шт',
     price_default: '',
+    nkt_code: '',
+    gtin: '',
   });
 
   const { data: items = [] } = useQuery({
@@ -77,6 +79,8 @@ export default function Items() {
         description: formData.description?.slice(0, 500) || null,
         unit: formData.unit?.slice(0, 20) || 'шт',
         price_default: priceValidation.value,
+        nkt_code: formData.nkt_code?.slice(0, 50) || null,
+        gtin: formData.gtin?.slice(0, 50) || null,
       });
 
       if (error) throw error;
@@ -84,7 +88,7 @@ export default function Items() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       setIsDialogOpen(false);
-      setFormData({ name: '', description: '', unit: 'шт', price_default: '' });
+      setFormData({ name: '', description: '', unit: 'шт', price_default: '', nkt_code: '', gtin: '' });
       toast({ title: 'Товар/услуга добавлен(а)' });
     },
     onError: (error: any) => {
@@ -113,7 +117,7 @@ export default function Items() {
                 Добавить
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Новый товар/услуга</DialogTitle>
               </DialogHeader>
@@ -160,6 +164,26 @@ export default function Items() {
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-muted/30 p-3 rounded-lg border">
+                  <div className="input-group">
+                    <Label>Код НКТ (compliance)</Label>
+                    <Input
+                      placeholder="Код НКТ"
+                      value={formData.nkt_code}
+                      onChange={(e) => setFormData({ ...formData, nkt_code: e.target.value })}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <Label>GTIN (штрихкод)</Label>
+                    <Input
+                      placeholder="GTIN"
+                      value={formData.gtin}
+                      onChange={(e) => setFormData({ ...formData, gtin: e.target.value })}
+                    />
+                  </div>
+                </div>
+
                 <Button type="submit" className="w-full" disabled={createMutation.isPending}>
                   Добавить
                 </Button>
@@ -206,6 +230,7 @@ export default function Items() {
                 <TableRow>
                   <TableHead>Название</TableHead>
                   <TableHead>Описание</TableHead>
+                  <TableHead>Код НКТ</TableHead>
                   <TableHead>Единица</TableHead>
                   <TableHead className="text-right">Цена</TableHead>
                 </TableRow>
@@ -216,6 +241,9 @@ export default function Items() {
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {item.description || '-'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.nkt_code || '-'}
                     </TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell className="text-right font-medium">

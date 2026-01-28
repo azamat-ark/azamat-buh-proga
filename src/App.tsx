@@ -17,6 +17,7 @@ import Accounts from "./pages/Accounts";
 import Categories from "./pages/Categories";
 import Items from "./pages/Items";
 import Invoices from "./pages/Invoices";
+import InvoiceDetails from "./pages/Invoices/InvoiceDetails";
 import Reports from "./pages/Reports";
 import Payroll from "./pages/Payroll";
 import Settings from "./pages/Settings";
@@ -54,6 +55,7 @@ const App = () => (
                 <Route path="/items" element={<Items />} />
                 <Route path="/invoices" element={<Invoices />} />
                 <Route path="/invoices/new" element={<Navigate to="/invoices?add=true" replace />} />
+                <Route path="/invoices/:id" element={<InvoiceDetails />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/payroll" element={<Payroll />} />
                 <Route path="/settings" element={<Settings />} />
